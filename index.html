@@ -247,7 +247,12 @@
       <!-- Progress Bar / Scrubber -->
       <div class="space-y-1.5">
         <div class="flex items-center justify-between text-xs font-mono text-slate-400">
-          <span id="currentTimeDisplay" class="text-emerald-400 font-semibold">00:00.0</span>
+          <div class="flex items-center gap-2">
+            <span id="currentTimeDisplay" class="text-emerald-400 font-semibold">00:00.0</span>
+            <button id="btnJumpFirstNote" class="hidden text-[11px] text-cyan-400 hover:text-cyan-300 underline font-sans flex items-center gap-0.5">
+              <span>最初の音へスキップ</span>
+            </button>
+          </div>
           <span id="totalTimeDisplay">00:00.0</span>
         </div>
         <div class="relative flex items-center">
@@ -345,7 +350,7 @@
           <i data-lucide="bar-chart-2" class="w-3.5 h-3.5 text-emerald-400"></i>
           メロディ ピアノロール（シーケンス可視化）
         </span>
-        <span class="text-[11px] text-slate-500">時間軸スクロール &amp; 発音中ノートをハイライト</span>
+        <span class="text-[11px] text-slate-500">クリックしてシーク可能 / 発音中ノートをハイライト</span>
       </div>
       <div class="relative w-full h-48 bg-slate-950 rounded-xl overflow-hidden border border-slate-800/80">
         <canvas id="pianoRollCanvas" class="w-full h-full block"></canvas>
@@ -398,6 +403,51 @@
       DEVICE_LIGHTS: 3,
       CMD_SET_LIGHTS: 2,
     };
+
+    // General MIDI Instrument Names
+    const GM_INSTRUMENTS = [
+      "Acoustic Grand Piano", "Bright Acoustic Piano", "Electric Grand Piano", "Honky-tonk Piano",
+      "Electric Piano 1", "Electric Piano 2", "Harpsichord", "Clavi",
+      "Celesta", "Glockenspiel", "Music Box", "Vibraphone",
+      "Marimba", "Xylophone", "Tubular Bells", "Dulcimer",
+      "Drawbar Organ", "Percussive Organ", "Rock Organ", "Church Organ",
+      "Reed Organ", "Accordion", "Harmonica", "Tango Accordion",
+      "Acoustic Guitar (nylon)", "Acoustic Guitar (steel)", "Electric Guitar (jazz)", "Electric Guitar (clean)",
+      "Electric Guitar (muted)", "Overdriven Guitar", "Distortion Guitar", "Guitar harmonics",
+      "Acoustic Bass", "Electric Bass (finger)", "Electric Bass (pick)", "Fretless Bass",
+      "Slap Bass 1", "Slap Bass 2", "Synth Bass 1", "Synth Bass 2",
+      "Violin", "Viola", "Cello", "Contrabass",
+      "Tremolo Strings", "Pizzicato Strings", "Orchestral Harp", "Timpani",
+      "String Ensemble 1", "String Ensemble 2", "SynthStrings 1", "SynthStrings 2",
+      "Choir Aahs", "Voice Oohs", "Synth Voice", "Orchestra Hit",
+      "Trumpet", "Trombone", "Tuba", "Muted Trumpet",
+      "French Horn", "Brass Section", "SynthBrass 1", "SynthBrass 2",
+      "Soprano Sax", "Alto Sax", "Tenor Sax", "Baritone Sax",
+      "Oboe", "English Horn", "Bassoon", "Clarinet",
+      "Piccolo", "Flute", "Recorder", "Pan Flute",
+      "Blown Bottle", "Shakuhachi", "Whistle", "Ocarina",
+      "Lead 1 (square)", "Lead 2 (sawtooth)", "Lead 3 (calliope)", "Lead 4 (chiff)",
+      "Lead 5 (charang)", "Lead 6 (voice)", "Lead 7 (fifths)", "Lead 8 (bass + lead)",
+      "Pad 1 (new age)", "Pad 2 (warm)", "Pad 3 (polysynth)", "Pad 4 (choir)",
+      "Pad 5 (bowed)", "Pad 6 (metallic)", "Pad 7 (halo)", "Pad 8 (sweep)",
+      "FX 1 (rain)", "FX 2 (soundtrack)", "FX 3 (crystal)", "FX 4 (atmosphere)",
+      "FX 5 (brightness)", "FX 6 (goblins)", "FX 7 (echoes)", "FX 8 (sci-fi)",
+      "Sitar", "Banjo", "Shamisen", "Koto",
+      "Kalimba", "Bag pipe", "Fiddle", "Shanai",
+      "Tinkle Bell", "Agogo", "Steel Drums", "Woodblock",
+      "Taiko Drum", "Melodic Tom", "Synth Drum", "Reverse Cymbal",
+      "Guitar Fret Noise", "Breath Noise", "Seashore", "Bird Tweet",
+      "Telephone Ring", "Helicopter", "Applause", "Gunshot"
+    ];
+
+    function getInstrumentName(inst) {
+      if (!inst) return '';
+      if (typeof inst.name === 'string' && inst.name.trim().length > 0) return inst.name.trim();
+      if (typeof inst.number === 'number' && GM_INSTRUMENTS[inst.number]) {
+        return GM_INSTRUMENTS[inst.number];
+      }
+      return '';
+    }
 
     // ==========================================
     // 2. CRC-8 Calculation (Matches iRobot Python SDK)
@@ -476,7 +526,7 @@
     function midiToName(midiNumber) {
       const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
       const octave = Math.floor(midiNumber / 12) - 1;
-      const noteIndex = midiNumber % 12;
+      const noteIndex = ((midiNumber % 12) + 12) % 12;
       return names[noteIndex] + octave;
     }
 
@@ -517,7 +567,6 @@
         
         let device;
         try {
-          // Request device with Root service or prefix
           device = await navigator.bluetooth.requestDevice({
             filters: [
               { services: [ROOT_BLE.IDENTIFIER_SERVICE] },
@@ -529,11 +578,9 @@
             ]
           });
         } catch (filterErr) {
-          // If user clicked or cancelled, or fallback to all devices
           if (filterErr.name === 'NotFoundError') {
             throw new Error('デバイスの選択がキャンセルされました。');
           }
-          // Try broader scan if specific filter threw
           device = await navigator.bluetooth.requestDevice({
             acceptAllDevices: true,
             optionalServices: [
@@ -556,7 +603,6 @@
         this.txCharacteristic = await service.getCharacteristic(ROOT_BLE.TX_CHARACTERISTIC);
         this.rxCharacteristic = await service.getCharacteristic(ROOT_BLE.RX_CHARACTERISTIC);
 
-        // Start notifications for robot events (battery, bumper, stop button)
         try {
           await this.rxCharacteristic.startNotifications();
           this.rxCharacteristic.addEventListener('characteristicvaluechanged', (e) => {
@@ -571,14 +617,13 @@
         app.updateBleUI();
         app.log('BLE', `接続完了: ${device.name || 'Root'}`);
 
-        // Greet with a short LED spin animation
         await this.setLights(3, 34, 197, 94); // Spin Green
       }
 
       async disconnect() {
         if (this.isConnected) {
           await this.stopSound();
-          await this.setLights(0, 0, 0, 0); // Lights off
+          await this.setLights(0, 0, 0, 0);
         }
         if (this.device && this.device.gatt.connected) {
           this.device.gatt.disconnect();
@@ -599,7 +644,6 @@
       async writePacket(packetBytes, description = '') {
         if (!this.isConnected || !this.txCharacteristic) return;
 
-        // Queue packet writes sequentially to prevent GATT congestion
         this.packetQueue = this.packetQueue.then(async () => {
           try {
             if (this.txCharacteristic.writeValueWithResponse) {
@@ -679,16 +723,15 @@
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
 
-        // Use square wave to emulate Root piezo buzzer sound
         osc.type = 'square';
-        osc.frequency.setValueAtTime(freqHz, this.ctx.currentTime);
+        const safeFreq = Math.max(30, Math.min(8000, freqHz || 440));
+        osc.frequency.setValueAtTime(safeFreq, this.ctx.currentTime);
 
         const now = this.ctx.currentTime;
         const attack = 0.005;
         const decay = 0.02;
         const dur = Math.max(0.04, durationSec);
 
-        // Envelope
         gain.gain.setValueAtTime(0.001, now);
         gain.gain.exponentialRampToValueAtTime(0.15, now + attack);
         gain.gain.setValueAtTime(0.15, now + dur - decay);
@@ -847,20 +890,29 @@
     };
 
     // ==========================================
-    // 6. Monophonic Conversion Algorithm
+    // 6. Robust Monophonic Conversion Algorithm
     // ==========================================
     function monophonizeNotes(rawNotes, strategy = 'highest', gateRatio = 0.85, transpose = 0) {
       if (!rawNotes || rawNotes.length === 0) return [];
 
-      // Apply transpose to raw notes
+      // Explicitly extract all properties from rawNotes instead of using object spread
+      // (This guarantees compatibility with Tone.js Note class instances where time/duration are getters)
       const notes = rawNotes.map(n => {
-        const transposedMidi = Math.min(108, Math.max(21, n.midi + transpose));
+        const time = Number(n.time) >= 0 ? Number(n.time) : 0;
+        const duration = Math.max(0.01, Number(n.duration) || 0.1);
+        const rawMidi = Number(n.midi) || 60;
+        const velocity = Number(n.velocity) || 0.8;
+        const transposedMidi = Math.min(108, Math.max(21, rawMidi + transpose));
         return {
-          ...n,
+          time: time,
+          duration: duration,
           midi: transposedMidi,
-          name: midiToName(transposedMidi)
+          name: midiToName(transposedMidi),
+          velocity: velocity
         };
-      });
+      }).filter(n => !isNaN(n.time) && !isNaN(n.duration) && !isNaN(n.midi));
+
+      if (notes.length === 0) return [];
 
       // Extract unique time slice points
       const timeSet = new Set();
@@ -875,7 +927,7 @@
         const t0 = times[i];
         const t1 = times[i + 1];
         const dt = t1 - t0;
-        if (dt < 0.01) continue; // Skip micro glitches < 10ms
+        if (dt < 0.005) continue; // Skip micro glitches < 5ms
 
         const midT = (t0 + t1) / 2;
         const active = notes.filter(n => n.time <= midT && (n.time + n.duration) >= midT);
@@ -968,7 +1020,7 @@
         this.checkBleSupport();
         this.bindEvents();
         this.initCanvas();
-        this.loadPreset('mario'); // Load Mario theme as default
+        this.loadPreset('mario');
         lucide.createIcons();
       }
 
@@ -996,7 +1048,7 @@
         // Test Beep
         document.getElementById('btnBleTestBeep').addEventListener('click', async () => {
           if (this.ble.isConnected) {
-            await this.ble.playNote(440, 200); // 440Hz 200ms
+            await this.ble.playNote(440, 200);
             if (this.synth.isEnabled) this.synth.playTone(440, 0.2);
           }
         });
@@ -1004,7 +1056,7 @@
         // Test LED
         document.getElementById('btnBleTestLed').addEventListener('click', async () => {
           if (this.ble.isConnected) {
-            await this.ble.setLights(3, 14, 165, 233); // Spin Cyan
+            await this.ble.setLights(3, 14, 165, 233);
           }
         });
 
@@ -1101,6 +1153,13 @@
         document.getElementById('btnPause').addEventListener('click', () => this.pause());
         document.getElementById('btnStop').addEventListener('click', () => this.stop());
 
+        // Skip to First Note Button
+        document.getElementById('btnJumpFirstNote').addEventListener('click', () => {
+          if (this.melodySequence.length > 0) {
+            this.seekTo(this.melodySequence[0].time);
+          }
+        });
+
         document.getElementById('btnLoop').addEventListener('click', (e) => {
           this.isLooping = !this.isLooping;
           const btn = document.getElementById('btnLoop');
@@ -1158,13 +1217,21 @@
 
         this.rawMidi = null;
         this.parsedTracks = [{
+          index: 0,
           name: preset.title,
-          notes: preset.notes
+          notes: preset.notes.map(n => ({
+            time: Number(n.time) || 0,
+            duration: Number(n.duration) || 0.2,
+            midi: Number(n.midi) || 60,
+            name: n.name || midiToName(n.midi || 60),
+            velocity: Number(n.velocity) || 0.8
+          }))
         }];
 
         document.getElementById('songTitleDisplay').textContent = preset.title;
         document.getElementById('songMetaDisplay').textContent = `プリセット楽曲 / テンポ: ${preset.bpm} BPM`;
-        document.getElementById('statDuration').textContent = formatTime(preset.notes[preset.notes.length - 1].time + preset.notes[preset.notes.length - 1].duration);
+        const lastNote = preset.notes[preset.notes.length - 1];
+        document.getElementById('statDuration').textContent = formatTime(lastNote.time + lastNote.duration);
         document.getElementById('statNotesCount').textContent = `${preset.notes.length} 音`;
         document.getElementById('statTracksCount').textContent = '1';
         document.getElementById('statBpm').textContent = `${preset.bpm}`;
@@ -1188,19 +1255,30 @@
             throw new Error('@tonejs/midi ライブラリがロードされていません。');
           }
 
-          const midi = new Midi(arrayBuffer);
+          // @tonejs/midi expects a Uint8Array byte buffer
+          const uint8 = new Uint8Array(arrayBuffer);
+          let midi;
+          try {
+            midi = new Midi(uint8);
+          } catch (err1) {
+            try {
+              midi = new Midi(arrayBuffer);
+            } catch (err2) {
+              throw new Error('MIDIファイルの構文解析に失敗しました: ' + (err1.message || err1));
+            }
+          }
           this.rawMidi = midi;
 
-          const title = midi.name || file.name.replace(/\.[^/.]+$/, "");
+          const title = (midi.name && midi.name.trim().length > 0) ? midi.name.trim() : file.name.replace(/\.[^/.]+$/, "");
           document.getElementById('songTitleDisplay').textContent = title;
           
           const bpm = midi.header.tempos && midi.header.tempos.length > 0 ? Math.round(midi.header.tempos[0].bpm) : 120;
-          document.getElementById('songMetaDisplay').textContent = `MIDIファイル: ${file.name} | PPQ: ${midi.header.ppq || 480}`;
+          document.getElementById('songMetaDisplay').textContent = `MIDIファイル: ${file.name} | PPQ: ${midi.header.ppq || 384}`;
           document.getElementById('statDuration').textContent = formatTime(midi.duration);
           document.getElementById('statTracksCount').textContent = `${midi.tracks.length}`;
           document.getElementById('statBpm').textContent = `${bpm}`;
 
-          // Parse and populate track selector
+          // Parse and populate track selector with robust note copying
           const trackSelect = document.getElementById('trackSelect');
           trackSelect.innerHTML = '';
 
@@ -1209,12 +1287,29 @@
 
           midi.tracks.forEach((track, idx) => {
             if (track.notes && track.notes.length > 0) {
-              totalNotes += track.notes.length;
-              this.parsedTracks.push({
-                index: idx,
-                name: track.name || `Track ${idx + 1} (${track.instrument ? track.instrument.name : 'Channel ' + (track.channel + 1)})`,
-                notes: track.notes
-              });
+              // Extract all note properties explicitly to preserve them from class getters
+              const cleanNotes = track.notes.map(n => ({
+                time: Number(n.time) >= 0 ? Number(n.time) : 0,
+                duration: Math.max(0.01, Number(n.duration) || 0.1),
+                midi: Number(n.midi) || 60,
+                name: n.name || midiToName(Number(n.midi) || 60),
+                velocity: Number(n.velocity) || 0.8
+              })).filter(n => !isNaN(n.time) && !isNaN(n.duration) && !isNaN(n.midi));
+
+              if (cleanNotes.length > 0) {
+                totalNotes += cleanNotes.length;
+                const instName = getInstrumentName(track.instrument);
+                const trackTitle = (track.name && track.name.trim().length > 0)
+                  ? track.name.trim()
+                  : (instName ? `${instName} (Ch ${track.channel + 1})` : `Track ${idx + 1} (Ch ${track.channel + 1})`);
+
+                this.parsedTracks.push({
+                  index: idx,
+                  name: trackTitle,
+                  channel: track.channel,
+                  notes: cleanNotes
+                });
+              }
             }
           });
 
@@ -1240,7 +1335,6 @@
             trackSelect.appendChild(opt);
           });
 
-          // Pick melody track (first non-percussion track with highest note count)
           this.selectedTrack = 'all';
           trackSelect.value = 'all';
 
@@ -1275,8 +1369,19 @@
         if (this.melodySequence.length > 0) {
           const last = this.melodySequence[this.melodySequence.length - 1];
           this.totalDuration = last.time + last.duration;
+
+          // Check if first note starts with silence > 1.5s
+          const firstNote = this.melodySequence[0];
+          const jumpBtn = document.getElementById('btnJumpFirstNote');
+          if (firstNote.time > 1.5) {
+            jumpBtn.classList.remove('hidden');
+            jumpBtn.querySelector('span').textContent = `最初の音へジャンプ (${formatTime(firstNote.time)})`;
+          } else {
+            jumpBtn.classList.add('hidden');
+          }
         } else {
           this.totalDuration = 0;
+          document.getElementById('btnJumpFirstNote').classList.add('hidden');
         }
 
         document.getElementById('totalTimeDisplay').textContent = formatTime(this.totalDuration);
@@ -1417,23 +1522,23 @@
       triggerNote(note) {
         const actualDurationSec = note.playDuration / this.speed;
         const actualDurationMs = Math.round(actualDurationSec * 1000);
+        const safeFreq = Math.max(30, Math.min(8000, note.freq || 440));
 
         // 1. Send BLE packet to Root Robot
         if (this.ble.isConnected) {
-          this.ble.playNote(note.freq, actualDurationMs);
+          this.ble.playNote(safeFreq, actualDurationMs);
 
           // LED flash sync
           if (this.isLedSync) {
-            // Map pitch to vibrant RGB hue
             const hue = ((note.midi - 36) * 7) % 360;
             const rgb = this.hslToRgb(hue / 360, 1.0, 0.5);
-            this.ble.setLights(1, rgb.r, rgb.g, rgb.b); // On
+            this.ble.setLights(1, rgb.r, rgb.g, rgb.b);
           }
         }
 
         // 2. Play Web Audio synthesizer preview
         if (this.synth.isEnabled) {
-          this.synth.playTone(note.freq, actualDurationSec);
+          this.synth.playTone(safeFreq, actualDurationSec);
         }
       }
 
@@ -1548,17 +1653,17 @@
           if (n.midi < minMidi) minMidi = n.midi;
           if (n.midi > maxMidi) maxMidi = n.midi;
         });
-        minMidi = Math.max(24, minMidi - 2);
+        minMidi = Math.max(21, minMidi - 2);
         maxMidi = Math.min(108, maxMidi + 2);
         const midiRange = Math.max(12, maxMidi - minMidi);
 
         // Draw note rectangles
         this.melodySequence.forEach(n => {
           const x = (n.time / this.totalDuration) * w;
-          const noteWidth = Math.max(3, (n.duration / this.totalDuration) * w - 1.5);
+          const noteWidth = Math.max(2, (n.duration / this.totalDuration) * w - 1);
           const normPitch = (n.midi - minMidi) / midiRange;
           const y = h - (normPitch * (h - 20)) - 15;
-          const noteHeight = Math.max(6, Math.min(16, (h / midiRange) * 0.9));
+          const noteHeight = Math.max(5, Math.min(14, (h / midiRange) * 0.9));
 
           const isCurrent = this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration);
 
@@ -1577,11 +1682,10 @@
             ctx.shadowBlur = 0;
           }
 
-          // Rounded rect for note
           ctx.beginPath();
-          ctx.roundRect(x, y, noteWidth, noteHeight, 3);
+          ctx.roundRect(x, y, noteWidth, noteHeight, 2);
           ctx.fill();
-          ctx.shadowBlur = 0; // Reset shadow
+          ctx.shadowBlur = 0;
         });
 
         // Draw Playhead line
