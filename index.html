@@ -1,0 +1,1698 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iRobot Root MIDI Player</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            root: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              dark: '#0f172a',
+              card: '#1e293b',
+              border: '#334155',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- @tonejs/midi CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    /* Animated pulse ring */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 0.3; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .pulse-animation {
+      animation: pulse-ring 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
+
+  <!-- Header / Top Bar -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-40 px-4 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-950/50">
+        <i data-lucide="bot" class="w-6 h-6 text-slate-950"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
+            Root MIDI Player
+          </h1>
+          <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">BLE Buzzer</span>
+        </div>
+        <p class="text-xs text-slate-400">iRobot Root ロボット Web Bluetooth 演奏コントローラー</p>
+      </div>
+    </div>
+
+    <!-- Bluetooth Status & Actions -->
+    <div class="flex items-center gap-2.5">
+      <!-- Status Badge -->
+      <div id="bleStatusBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/90 border border-slate-700 text-xs font-medium">
+        <span id="bleStatusDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+        <span id="bleStatusText" class="text-slate-300">未接続</span>
+      </div>
+
+      <!-- Quick Test Beep Button -->
+      <button id="btnBleTestBeep" disabled title="テスト音 (A4 440Hz 200ms) を送信" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">
+        <i data-lucide="volume-2" class="w-3.5 h-3.5 text-emerald-400"></i>
+        <span>テスト発音</span>
+      </button>
+
+      <!-- Quick LED Test Button -->
+      <button id="btnBleTestLed" disabled title="LED点灯テストを送信" class="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i>
+        <span>LEDテスト</span>
+      </button>
+
+      <!-- Connect / Disconnect Button -->
+      <button id="btnBleConnect" class="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-950/50 hover:shadow-emerald-900/40 transition active:scale-95">
+        <i data-lucide="bluetooth" class="w-4 h-4"></i>
+        <span id="btnBleConnectLabel">Rootに接続</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Web Bluetooth Unsupported Warning Banner -->
+  <div id="bleWarningBanner" class="hidden bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300 text-center flex items-center justify-center gap-2">
+    <i data-lucide="alert-triangle" class="w-4 h-4 flex-shrink-0"></i>
+    <span>お使いのブラウザは Web Bluetooth API に対応していないか、安全な接続（HTTPS / localhost）で開かれていません。Google Chrome、Edge、または Opera でお試しください。</span>
+  </div>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+    <!-- Top Grid: File Drop & Song Info & Preset -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Left Column: File Drop & Presets (5 cols) -->
+      <div class="lg:col-span-5 space-y-4">
+        
+        <!-- File Drop Area -->
+        <div id="dropZone" class="relative group border-2 border-dashed border-slate-700 hover:border-emerald-500/80 bg-slate-900/60 hover:bg-slate-900/90 rounded-2xl p-6 text-center transition cursor-pointer flex flex-col items-center justify-center min-h-[190px]">
+          <input type="file" id="fileInput" accept=".mid,.midi" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10">
+          <div class="w-12 h-12 rounded-xl bg-slate-800 group-hover:bg-emerald-500/20 text-slate-400 group-hover:text-emerald-400 flex items-center justify-center mb-3 transition">
+            <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+          </div>
+          <p class="text-sm font-medium text-slate-200 mb-1">
+            <span class="text-emerald-400 font-semibold underline underline-offset-4">MIDIファイルを選択</span> またはドラッグ＆ドロップ
+          </p>
+          <p class="text-xs text-slate-400">標準MIDIファイル (.mid, .midi) に対応</p>
+        </div>
+
+        <!-- Presets -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-2.5">
+          <div class="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <span class="flex items-center gap-1.5">
+              <i data-lucide="music-2" class="w-3.5 h-3.5 text-emerald-400"></i>
+              プリセット楽曲（すぐにテスト）
+            </span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <button data-preset="mario" class="preset-btn px-2.5 py-2 text-left bg-slate-800/80 hover:bg-emerald-950/40 hover:border-emerald-500/40 border border-slate-700/80 rounded-xl text-xs transition group">
+              <div class="font-medium text-slate-200 group-hover:text-emerald-300 truncate">マリオのテーマ</div>
+              <div class="text-[10px] text-slate-400 truncate">Super Mario Bros.</div>
+            </button>
+            <button data-preset="twinkle" class="preset-btn px-2.5 py-2 text-left bg-slate-800/80 hover:bg-emerald-950/40 hover:border-emerald-500/40 border border-slate-700/80 rounded-xl text-xs transition group">
+              <div class="font-medium text-slate-200 group-hover:text-emerald-300 truncate">きらきら星</div>
+              <div class="text-[10px] text-slate-400 truncate">童謡・モーツァルト</div>
+            </button>
+            <button data-preset="ode_to_joy" class="preset-btn px-2.5 py-2 text-left bg-slate-800/80 hover:bg-emerald-950/40 hover:border-emerald-500/40 border border-slate-700/80 rounded-xl text-xs transition group">
+              <div class="font-medium text-slate-200 group-hover:text-emerald-300 truncate">歓喜の歌 (第九)</div>
+              <div class="text-[10px] text-slate-400 truncate">ベートーヴェン</div>
+            </button>
+            <button data-preset="fur_elise" class="preset-btn px-2.5 py-2 text-left bg-slate-800/80 hover:bg-emerald-950/40 hover:border-emerald-500/40 border border-slate-700/80 rounded-xl text-xs transition group">
+              <div class="font-medium text-slate-200 group-hover:text-emerald-300 truncate">エリーゼのために</div>
+              <div class="text-[10px] text-slate-400 truncate">ベートーヴェン</div>
+            </button>
+            <button data-preset="canon" class="preset-btn px-2.5 py-2 text-left bg-slate-800/80 hover:bg-emerald-950/40 hover:border-emerald-500/40 border border-slate-700/80 rounded-xl text-xs transition group col-span-2 sm:col-span-2">
+              <div class="font-medium text-slate-200 group-hover:text-emerald-300 truncate">パッヘルベルのカノン</div>
+              <div class="text-[10px] text-slate-400 truncate">Canon in D</div>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Loaded Song Metadata & Controls (7 cols) -->
+      <div class="lg:col-span-7 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+        
+        <!-- Song Header & Metadata -->
+        <div>
+          <div class="flex items-start justify-between gap-4 mb-3">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Now Loaded</span>
+              <h2 id="songTitleDisplay" class="text-xl font-bold text-white mt-1 line-clamp-1">楽曲が読み込まれていません</h2>
+              <p id="songMetaDisplay" class="text-xs text-slate-400 mt-0.5">MIDIファイルをアップロードするか、左側のプリセットを選択してください</p>
+            </div>
+            <div id="activeNoteBadge" class="flex-shrink-0 px-3 py-1.5 bg-slate-800/90 border border-slate-700 rounded-xl text-right min-w-[90px]">
+              <div class="text-[10px] uppercase font-semibold text-slate-400">演奏中ノート</div>
+              <div id="activeNoteName" class="text-lg font-bold font-mono text-emerald-400">---</div>
+              <div id="activeNoteFreq" class="text-[10px] font-mono text-slate-400">0 Hz</div>
+            </div>
+          </div>
+
+          <!-- Quick Stats Grid -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+            <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-2.5">
+              <div class="text-slate-400 text-[10px] uppercase font-semibold">曲の長さ</div>
+              <div id="statDuration" class="text-sm font-semibold font-mono text-slate-200">00:00</div>
+            </div>
+            <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-2.5">
+              <div class="text-slate-400 text-[10px] uppercase font-semibold">総ノート数</div>
+              <div id="statNotesCount" class="text-sm font-semibold font-mono text-slate-200">0 音</div>
+            </div>
+            <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-2.5">
+              <div class="text-slate-400 text-[10px] uppercase font-semibold">トラック数</div>
+              <div id="statTracksCount" class="text-sm font-semibold font-mono text-slate-200">0</div>
+            </div>
+            <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-2.5">
+              <div class="text-slate-400 text-[10px] uppercase font-semibold">テンポ (BPM)</div>
+              <div id="statBpm" class="text-sm font-semibold font-mono text-slate-200">120</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Track Selector & Monophonic Settings -->
+        <div class="pt-2 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label for="trackSelect" class="block font-medium text-slate-300 mb-1 flex items-center justify-between">
+              <span>再生トラック選択</span>
+              <span id="trackNotesInfo" class="text-[10px] text-slate-400"></span>
+            </label>
+            <select id="trackSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none">
+              <option value="all">全トラック統合 (All Merged)</option>
+            </select>
+          </div>
+          <div>
+            <label for="polyStrategySelect" class="block font-medium text-slate-300 mb-1 flex items-center justify-between">
+              <span>単音化（和音処理）方式</span>
+              <span class="text-[10px] text-emerald-400">Root対応</span>
+            </label>
+            <select id="polyStrategySelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none">
+              <option value="highest" selected>高音優先 (Highest / メロディ推奨)</option>
+              <option value="lowest">低音優先 (Lowest / ベースライン)</option>
+              <option value="velocity">強音優先 (Loudest / ベロシティ最大)</option>
+            </select>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Middle Section: Playback Controller & Options -->
+    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
+      
+      <!-- Progress Bar / Scrubber -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between text-xs font-mono text-slate-400">
+          <span id="currentTimeDisplay" class="text-emerald-400 font-semibold">00:00.0</span>
+          <span id="totalTimeDisplay">00:00.0</span>
+        </div>
+        <div class="relative flex items-center">
+          <input type="range" id="seekSlider" min="0" max="100" value="0" step="0.1" class="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 focus:outline-none">
+        </div>
+      </div>
+
+      <!-- Controls Row: Play, Pause, Stop, Seek, Speed, Transpose -->
+      <div class="flex flex-wrap items-center justify-between gap-4 pt-1">
+        
+        <!-- Main Transport Buttons -->
+        <div class="flex items-center gap-2">
+          <!-- Play / Resume Button -->
+          <button id="btnPlay" class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-sm shadow-lg shadow-emerald-950/60 transition">
+            <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+            <span id="btnPlayText">再生</span>
+          </button>
+          
+          <!-- Pause Button -->
+          <button id="btnPause" disabled class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition" title="一時停止">
+            <i data-lucide="pause" class="w-4 h-4"></i>
+          </button>
+
+          <!-- Stop Button -->
+          <button id="btnStop" disabled class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition" title="停止">
+            <i data-lucide="square" class="w-4 h-4"></i>
+          </button>
+
+          <!-- Loop Toggle -->
+          <button id="btnLoop" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition" title="ループ再生">
+            <i data-lucide="repeat" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- Sliders & Toggles -->
+        <div class="flex flex-wrap items-center gap-4 text-xs">
+          
+          <!-- Playback Speed -->
+          <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
+            <i data-lucide="gauge" class="w-3.5 h-3.5 text-slate-400"></i>
+            <span class="text-slate-300 font-medium">速度:</span>
+            <select id="speedSelect" class="bg-transparent text-emerald-400 font-bold focus:outline-none cursor-pointer">
+              <option value="0.5" class="bg-slate-800 text-slate-200">0.5x</option>
+              <option value="0.75" class="bg-slate-800 text-slate-200">0.75x</option>
+              <option value="1.0" selected class="bg-slate-800 text-slate-200">1.0x (標準)</option>
+              <option value="1.25" class="bg-slate-800 text-slate-200">1.25x</option>
+              <option value="1.5" class="bg-slate-800 text-slate-200">1.5x</option>
+              <option value="2.0" class="bg-slate-800 text-slate-200">2.0x</option>
+            </select>
+          </div>
+
+          <!-- Transpose Control -->
+          <div class="flex items-center gap-1.5 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
+            <span class="text-slate-300 font-medium">移調:</span>
+            <button id="btnTransposeDown" class="w-5 h-5 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold">-</button>
+            <span id="transposeDisplay" class="font-mono text-emerald-400 font-bold w-8 text-center">0</span>
+            <button id="btnTransposeUp" class="w-5 h-5 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold">+</button>
+            <span class="text-[10px] text-slate-400">半音</span>
+          </div>
+
+          <!-- Staccato / Gate Ratio -->
+          <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
+            <span class="text-slate-300 font-medium">音切れ (Gate):</span>
+            <input type="range" id="gateRatioSlider" min="0.5" max="1.0" step="0.05" value="0.85" class="w-16 h-1.5 bg-slate-700 rounded appearance-none accent-emerald-500 cursor-pointer">
+            <span id="gateRatioDisplay" class="font-mono text-slate-300 font-bold text-[11px]">85%</span>
+          </div>
+
+          <!-- Local Web Audio Synth Preview Toggle -->
+          <label class="flex items-center gap-2 cursor-pointer bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 select-none hover:bg-slate-800 transition">
+            <input type="checkbox" id="toggleWebAudio" checked class="w-4 h-4 text-emerald-500 rounded border-slate-600 focus:ring-emerald-500 accent-emerald-500">
+            <span class="text-slate-200 font-medium flex items-center gap-1">
+              <i data-lucide="headphones" class="w-3.5 h-3.5 text-cyan-400"></i>
+              ブラウザ音声プレビュー
+            </span>
+          </label>
+
+          <!-- Robot LED Sync Toggle -->
+          <label class="flex items-center gap-2 cursor-pointer bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 select-none hover:bg-slate-800 transition">
+            <input type="checkbox" id="toggleLedSync" checked class="w-4 h-4 text-emerald-500 rounded border-slate-600 focus:ring-emerald-500 accent-emerald-500">
+            <span class="text-slate-200 font-medium flex items-center gap-1">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i>
+              Root LED連動
+            </span>
+          </label>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Visualizer / Piano Roll Canvas -->
+    <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-2">
+      <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
+        <span class="flex items-center gap-1.5">
+          <i data-lucide="bar-chart-2" class="w-3.5 h-3.5 text-emerald-400"></i>
+          メロディ ピアノロール（シーケンス可視化）
+        </span>
+        <span class="text-[11px] text-slate-500">時間軸スクロール &amp; 発音中ノートをハイライト</span>
+      </div>
+      <div class="relative w-full h-48 bg-slate-950 rounded-xl overflow-hidden border border-slate-800/80">
+        <canvas id="pianoRollCanvas" class="w-full h-full block"></canvas>
+      </div>
+    </div>
+
+    <!-- Bottom Section: BLE Packet Inspector / Console Log (Collapsible) -->
+    <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden">
+      <button id="btnToggleLog" class="w-full px-5 py-3 flex items-center justify-between text-xs font-semibold text-slate-300 hover:bg-slate-800/50 transition">
+        <span class="flex items-center gap-2">
+          <i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i>
+          BLE コマンド送信ログ・パケットモニター (Device 5: Sound)
+        </span>
+        <div class="flex items-center gap-2">
+          <span id="logCountBadge" class="px-2 py-0.5 bg-slate-800 rounded-full text-[10px] font-mono text-slate-400">0 packets</span>
+          <i id="logToggleIcon" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform"></i>
+        </div>
+      </button>
+      <div id="logContainer" class="hidden p-4 border-t border-slate-800 bg-slate-950 font-mono text-xs text-slate-300 space-y-1 max-h-56 overflow-y-auto">
+        <div class="flex items-center justify-between text-[11px] text-slate-500 pb-2 border-b border-slate-800">
+          <span>時刻 / 種別 / Dev / Cmd / Inc / ペイロード (周波数, 発音時間) / CRC8</span>
+          <button id="btnClearLog" class="text-slate-400 hover:text-slate-200 underline">ログ消去</button>
+        </div>
+        <div id="logList" class="space-y-1 pt-1">
+          <div class="text-slate-500 italic text-[11px]">ログはまだありません。Rootに接続するか再生を開始するとBLEパケットが表示されます。</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800 py-4 px-4 text-center text-xs text-slate-400">
+    <p>iRobot Root® Bluetooth LE MIDI Player — Built with Web Bluetooth API, @tonejs/midi &amp; Tailwind CSS</p>
+  </footer>
+
+  <!-- Application Logic -->
+  <script>
+    // ==========================================
+    // 1. Constants & BLE UUIDs for iRobot Root
+    // ==========================================
+    const ROOT_BLE = {
+      IDENTIFIER_SERVICE: '48c5d828-ac2a-442d-97a3-0c9822b04979',
+      UART_SERVICE:       '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+      TX_CHARACTERISTIC:  '6e400002-b5a3-f393-e0a9-e50e24dcca9e', // Host Write to Robot
+      RX_CHARACTERISTIC:  '6e400003-b5a3-f393-e0a9-e50e24dcca9e', // Robot Notify to Host
+      DEVICE_SOUND: 5,
+      CMD_PLAY_NOTE: 0,
+      CMD_STOP_SOUND: 1,
+      DEVICE_LIGHTS: 3,
+      CMD_SET_LIGHTS: 2,
+    };
+
+    // ==========================================
+    // 2. CRC-8 Calculation (Matches iRobot Python SDK)
+    // ==========================================
+    function calculateCRC8(packet19) {
+      let crc = 0x00;
+      for (let i = 0; i < packet19.length; i++) {
+        let c = packet19[i];
+        for (let j = 0; j < 8; j++) {
+          let b = crc & 0x80;
+          if (c & (0x80 >> j)) {
+            b ^= 0x80;
+          }
+          crc = (crc << 1) & 0xFF;
+          if (b) {
+            crc ^= 0x07;
+          }
+        }
+        crc &= 0xFF;
+      }
+      return crc;
+    }
+
+    // Create 20-byte Play Note Packet
+    function createPlayNotePacket(freqHz, durationMs, inc = 0) {
+      const buf = new Uint8Array(20);
+      buf[0] = ROOT_BLE.DEVICE_SOUND;
+      buf[1] = ROOT_BLE.CMD_PLAY_NOTE;
+      buf[2] = inc & 0xFF;
+      
+      const freq = Math.round(Math.abs(freqHz));
+      buf[3] = (freq >>> 24) & 0xFF;
+      buf[4] = (freq >>> 16) & 0xFF;
+      buf[5] = (freq >>> 8) & 0xFF;
+      buf[6] = freq & 0xFF;
+
+      const dur = Math.round(Math.abs(durationMs));
+      buf[7] = (dur >>> 8) & 0xFF;
+      buf[8] = dur & 0xFF;
+
+      // Bytes 9..18 are 0 padding
+      buf[19] = calculateCRC8(buf.subarray(0, 19));
+      return buf;
+    }
+
+    // Create 20-byte Stop Sound Packet
+    function createStopSoundPacket(inc = 0) {
+      const buf = new Uint8Array(20);
+      buf[0] = ROOT_BLE.DEVICE_SOUND;
+      buf[1] = ROOT_BLE.CMD_STOP_SOUND;
+      buf[2] = inc & 0xFF;
+      buf[19] = calculateCRC8(buf.subarray(0, 19));
+      return buf;
+    }
+
+    // Create 20-byte Set Lights Packet
+    function createSetLightsPacket(animation, r, g, b, inc = 0) {
+      const buf = new Uint8Array(20);
+      buf[0] = ROOT_BLE.DEVICE_LIGHTS;
+      buf[1] = ROOT_BLE.CMD_SET_LIGHTS;
+      buf[2] = inc & 0xFF;
+      buf[3] = animation & 0xFF; // 0: off, 1: on, 2: blink, 3: spin
+      buf[4] = Math.min(255, Math.max(0, r));
+      buf[5] = Math.min(255, Math.max(0, g));
+      buf[6] = Math.min(255, Math.max(0, b));
+      buf[19] = calculateCRC8(buf.subarray(0, 19));
+      return buf;
+    }
+
+    // Note number to Frequency (Hz)
+    function midiToFreq(midiNumber) {
+      return 440 * Math.pow(2, (midiNumber - 69) / 12);
+    }
+
+    // MIDI Note number to Name (e.g. 60 -> C4)
+    function midiToName(midiNumber) {
+      const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+      const octave = Math.floor(midiNumber / 12) - 1;
+      const noteIndex = midiNumber % 12;
+      return names[noteIndex] + octave;
+    }
+
+    // Format seconds to mm:ss.s
+    function formatTime(sec) {
+      if (isNaN(sec) || sec < 0) sec = 0;
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      const ms = Math.floor((sec % 1) * 10);
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${ms}`;
+    }
+
+    // ==========================================
+    // 3. Web Bluetooth Manager
+    // ==========================================
+    class BleManager {
+      constructor() {
+        this.device = null;
+        this.server = null;
+        this.txCharacteristic = null;
+        this.rxCharacteristic = null;
+        this.isConnected = false;
+        this.seqInc = 0;
+        this.packetQueue = Promise.resolve();
+      }
+
+      getNextInc() {
+        this.seqInc = (this.seqInc + 1) & 0xFF;
+        return this.seqInc;
+      }
+
+      async connect() {
+        if (!navigator.bluetooth) {
+          throw new Error('Web Bluetooth API がサポートされていません。');
+        }
+
+        app.log('BLE', 'スキャン開始 (iRobot Rootを探しています)...');
+        
+        let device;
+        try {
+          // Request device with Root service or prefix
+          device = await navigator.bluetooth.requestDevice({
+            filters: [
+              { services: [ROOT_BLE.IDENTIFIER_SERVICE] },
+              { namePrefix: 'Root' }
+            ],
+            optionalServices: [
+              ROOT_BLE.IDENTIFIER_SERVICE,
+              ROOT_BLE.UART_SERVICE
+            ]
+          });
+        } catch (filterErr) {
+          // If user clicked or cancelled, or fallback to all devices
+          if (filterErr.name === 'NotFoundError') {
+            throw new Error('デバイスの選択がキャンセルされました。');
+          }
+          // Try broader scan if specific filter threw
+          device = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: [
+              ROOT_BLE.IDENTIFIER_SERVICE,
+              ROOT_BLE.UART_SERVICE
+            ]
+          });
+        }
+
+        this.device = device;
+        this.device.addEventListener('gattserverdisconnected', () => this.onDisconnected());
+
+        app.log('BLE', `接続中: ${device.name || 'Root Robot'}...`);
+        this.server = await this.device.gatt.connect();
+
+        app.log('BLE', 'GATT UARTサービスを取得中...');
+        const service = await this.server.getPrimaryService(ROOT_BLE.UART_SERVICE);
+
+        app.log('BLE', 'TX/RXキャラクタリスティックを取得中...');
+        this.txCharacteristic = await service.getCharacteristic(ROOT_BLE.TX_CHARACTERISTIC);
+        this.rxCharacteristic = await service.getCharacteristic(ROOT_BLE.RX_CHARACTERISTIC);
+
+        // Start notifications for robot events (battery, bumper, stop button)
+        try {
+          await this.rxCharacteristic.startNotifications();
+          this.rxCharacteristic.addEventListener('characteristicvaluechanged', (e) => {
+            this.handleRxPacket(e.target.value);
+          });
+          app.log('BLE', 'RX 受信通知リスナーを開始しました。');
+        } catch (rxErr) {
+          console.warn('Could not start RX notifications:', rxErr);
+        }
+
+        this.isConnected = true;
+        app.updateBleUI();
+        app.log('BLE', `接続完了: ${device.name || 'Root'}`);
+
+        // Greet with a short LED spin animation
+        await this.setLights(3, 34, 197, 94); // Spin Green
+      }
+
+      async disconnect() {
+        if (this.isConnected) {
+          await this.stopSound();
+          await this.setLights(0, 0, 0, 0); // Lights off
+        }
+        if (this.device && this.device.gatt.connected) {
+          this.device.gatt.disconnect();
+        }
+        this.onDisconnected();
+      }
+
+      onDisconnected() {
+        this.isConnected = false;
+        this.device = null;
+        this.server = null;
+        this.txCharacteristic = null;
+        this.rxCharacteristic = null;
+        app.updateBleUI();
+        app.log('BLE', 'Root ロボットが切断されました。');
+      }
+
+      async writePacket(packetBytes, description = '') {
+        if (!this.isConnected || !this.txCharacteristic) return;
+
+        // Queue packet writes sequentially to prevent GATT congestion
+        this.packetQueue = this.packetQueue.then(async () => {
+          try {
+            if (this.txCharacteristic.writeValueWithResponse) {
+              await this.txCharacteristic.writeValueWithResponse(packetBytes);
+            } else {
+              await this.txCharacteristic.writeValue(packetBytes);
+            }
+            if (description) {
+              app.logPacket('TX', packetBytes, description);
+            }
+          } catch (err) {
+            console.error('BLE write error:', err);
+            app.log('ERR', `送信エラー: ${err.message}`);
+          }
+        }).catch(err => {
+          console.error('Packet queue error:', err);
+        });
+
+        return this.packetQueue;
+      }
+
+      async playNote(freqHz, durationMs) {
+        const inc = this.getNextInc();
+        const packet = createPlayNotePacket(freqHz, durationMs, inc);
+        const desc = `PlayNote: ${Math.round(freqHz)}Hz (${durationMs}ms)`;
+        return this.writePacket(packet, desc);
+      }
+
+      async stopSound() {
+        const inc = this.getNextInc();
+        const packet = createStopSoundPacket(inc);
+        return this.writePacket(packet, 'StopSound');
+      }
+
+      async setLights(animation, r, g, b) {
+        const inc = this.getNextInc();
+        const packet = createSetLightsPacket(animation, r, g, b, inc);
+        return this.writePacket(packet, `SetLights: anim=${animation} RGB(${r},${g},${b})`);
+      }
+
+      handleRxPacket(dataView) {
+        if (!dataView || dataView.byteLength < 3) return;
+        const dev = dataView.getUint8(0);
+        const cmd = dataView.getUint8(1);
+        const inc = dataView.getUint8(2);
+        const raw = new Uint8Array(dataView.buffer);
+        app.logPacket('RX', raw, `Dev:${dev} Cmd:${cmd} Inc:${inc}`);
+      }
+    }
+
+    // ==========================================
+    // 4. Web Audio Synthesizer (Local Preview)
+    // ==========================================
+    class LocalSynth {
+      constructor() {
+        this.ctx = null;
+        this.currentOsc = null;
+        this.currentGain = null;
+        this.isEnabled = true;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playTone(freqHz, durationSec) {
+        if (!this.isEnabled) return;
+        this.init();
+        this.stopTone();
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        // Use square wave to emulate Root piezo buzzer sound
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freqHz, this.ctx.currentTime);
+
+        const now = this.ctx.currentTime;
+        const attack = 0.005;
+        const decay = 0.02;
+        const dur = Math.max(0.04, durationSec);
+
+        // Envelope
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.exponentialRampToValueAtTime(0.15, now + attack);
+        gain.gain.setValueAtTime(0.15, now + dur - decay);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + dur + 0.05);
+
+        this.currentOsc = osc;
+        this.currentGain = gain;
+      }
+
+      stopTone() {
+        if (this.currentOsc) {
+          try {
+            this.currentGain.gain.cancelScheduledValues(this.ctx.currentTime);
+            this.currentGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+            this.currentOsc.stop(this.ctx.currentTime + 0.01);
+          } catch (e) {}
+          this.currentOsc = null;
+          this.currentGain = null;
+        }
+      }
+    }
+
+    // ==========================================
+    // 5. Preset Melodies
+    // ==========================================
+    const PRESETS = {
+      mario: {
+        title: "Super Mario Bros. - Overworld Theme",
+        bpm: 180,
+        notes: [
+          { midi: 76, name: 'E5', time: 0.0, duration: 0.15 },
+          { midi: 76, name: 'E5', time: 0.20, duration: 0.15 },
+          { midi: 76, name: 'E5', time: 0.45, duration: 0.15 },
+          { midi: 72, name: 'C5', time: 0.70, duration: 0.15 },
+          { midi: 76, name: 'E5', time: 0.90, duration: 0.25 },
+          { midi: 79, name: 'G5', time: 1.25, duration: 0.35 },
+          { midi: 67, name: 'G4', time: 1.70, duration: 0.35 },
+          { midi: 72, name: 'C5', time: 2.20, duration: 0.30 },
+          { midi: 67, name: 'G4', time: 2.60, duration: 0.25 },
+          { midi: 64, name: 'E4', time: 2.95, duration: 0.25 },
+          { midi: 69, name: 'A4', time: 3.30, duration: 0.25 },
+          { midi: 71, name: 'B4', time: 3.65, duration: 0.25 },
+          { midi: 70, name: 'A#4', time: 4.00, duration: 0.20 },
+          { midi: 69, name: 'A4', time: 4.25, duration: 0.25 },
+          { midi: 67, name: 'G4', time: 4.60, duration: 0.25 },
+          { midi: 76, name: 'E5', time: 4.95, duration: 0.25 },
+          { midi: 79, name: 'G5', time: 5.30, duration: 0.25 },
+          { midi: 81, name: 'A5', time: 5.65, duration: 0.35 },
+          { midi: 77, name: 'F5', time: 6.10, duration: 0.20 },
+          { midi: 79, name: 'G5', time: 6.35, duration: 0.25 },
+          { midi: 76, name: 'E5', time: 6.70, duration: 0.25 },
+          { midi: 72, name: 'C5', time: 7.05, duration: 0.20 },
+          { midi: 74, name: 'D5', time: 7.30, duration: 0.20 },
+          { midi: 71, name: 'B4', time: 7.55, duration: 0.35 }
+        ]
+      },
+      twinkle: {
+        title: "きらきら星 (Twinkle Twinkle Little Star)",
+        bpm: 110,
+        notes: [
+          { midi: 60, name: 'C4', time: 0.0, duration: 0.45 },
+          { midi: 60, name: 'C4', time: 0.55, duration: 0.45 },
+          { midi: 67, name: 'G4', time: 1.1, duration: 0.45 },
+          { midi: 67, name: 'G4', time: 1.65, duration: 0.45 },
+          { midi: 69, name: 'A4', time: 2.2, duration: 0.45 },
+          { midi: 69, name: 'A4', time: 2.75, duration: 0.45 },
+          { midi: 67, name: 'G4', time: 3.3, duration: 0.95 },
+          { midi: 65, name: 'F4', time: 4.4, duration: 0.45 },
+          { midi: 65, name: 'F4', time: 4.95, duration: 0.45 },
+          { midi: 64, name: 'E4', time: 5.5, duration: 0.45 },
+          { midi: 64, name: 'E4', time: 6.05, duration: 0.45 },
+          { midi: 62, name: 'D4', time: 6.6, duration: 0.45 },
+          { midi: 62, name: 'D4', time: 7.15, duration: 0.45 },
+          { midi: 60, name: 'C4', time: 7.7, duration: 0.95 },
+          { midi: 67, name: 'G4', time: 8.8, duration: 0.45 },
+          { midi: 67, name: 'G4', time: 9.35, duration: 0.45 },
+          { midi: 65, name: 'F4', time: 9.9, duration: 0.45 },
+          { midi: 65, name: 'F4', time: 10.45, duration: 0.45 },
+          { midi: 64, name: 'E4', time: 11.0, duration: 0.45 },
+          { midi: 64, name: 'E4', time: 11.55, duration: 0.45 },
+          { midi: 62, name: 'D4', time: 12.1, duration: 0.95 }
+        ]
+      },
+      ode_to_joy: {
+        title: "ベートーヴェン - 歓喜の歌 (Ode to Joy)",
+        bpm: 125,
+        notes: [
+          { midi: 64, name: 'E4', time: 0.0, duration: 0.42 },
+          { midi: 64, name: 'E4', time: 0.48, duration: 0.42 },
+          { midi: 65, name: 'F4', time: 0.96, duration: 0.42 },
+          { midi: 67, name: 'G4', time: 1.44, duration: 0.42 },
+          { midi: 67, name: 'G4', time: 1.92, duration: 0.42 },
+          { midi: 65, name: 'F4', time: 2.40, duration: 0.42 },
+          { midi: 64, name: 'E4', time: 2.88, duration: 0.42 },
+          { midi: 62, name: 'D4', time: 3.36, duration: 0.42 },
+          { midi: 60, name: 'C4', time: 3.84, duration: 0.42 },
+          { midi: 60, name: 'C4', time: 4.32, duration: 0.42 },
+          { midi: 62, name: 'D4', time: 4.80, duration: 0.42 },
+          { midi: 64, name: 'E4', time: 5.28, duration: 0.42 },
+          { midi: 64, name: 'E4', time: 5.76, duration: 0.65 },
+          { midi: 62, name: 'D4', time: 6.48, duration: 0.22 },
+          { midi: 62, name: 'D4', time: 6.72, duration: 0.85 }
+        ]
+      },
+      fur_elise: {
+        title: "ベートーヴェン - エリーゼのために (Für Elise)",
+        bpm: 130,
+        notes: [
+          { midi: 76, name: 'E5', time: 0.0, duration: 0.22 },
+          { midi: 75, name: 'D#5', time: 0.24, duration: 0.22 },
+          { midi: 76, name: 'E5', time: 0.48, duration: 0.22 },
+          { midi: 75, name: 'D#5', time: 0.72, duration: 0.22 },
+          { midi: 76, name: 'E5', time: 0.96, duration: 0.22 },
+          { midi: 71, name: 'B4', time: 1.20, duration: 0.22 },
+          { midi: 74, name: 'D5', time: 1.44, duration: 0.22 },
+          { midi: 72, name: 'C5', time: 1.68, duration: 0.22 },
+          { midi: 69, name: 'A4', time: 1.92, duration: 0.60 },
+          { midi: 60, name: 'C4', time: 2.64, duration: 0.22 },
+          { midi: 64, name: 'E4', time: 2.88, duration: 0.22 },
+          { midi: 69, name: 'A4', time: 3.12, duration: 0.22 },
+          { midi: 71, name: 'B4', time: 3.36, duration: 0.60 },
+          { midi: 64, name: 'E4', time: 4.08, duration: 0.22 },
+          { midi: 68, name: 'G#4', time: 4.32, duration: 0.22 },
+          { midi: 71, name: 'B4', time: 4.56, duration: 0.22 },
+          { midi: 72, name: 'C5', time: 4.80, duration: 0.60 }
+        ]
+      },
+      canon: {
+        title: "パッヘルベル - カノン (Canon in D)",
+        bpm: 90,
+        notes: [
+          { midi: 74, name: 'D5', time: 0.0, duration: 0.6 },
+          { midi: 73, name: 'C#5', time: 0.66, duration: 0.6 },
+          { midi: 71, name: 'B4', time: 1.33, duration: 0.6 },
+          { midi: 69, name: 'A4', time: 2.00, duration: 0.6 },
+          { midi: 67, name: 'G4', time: 2.66, duration: 0.6 },
+          { midi: 66, name: 'F#4', time: 3.33, duration: 0.6 },
+          { midi: 67, name: 'G4', time: 4.00, duration: 0.6 },
+          { midi: 69, name: 'A4', time: 4.66, duration: 0.6 },
+          { midi: 74, name: 'D5', time: 5.33, duration: 0.3 },
+          { midi: 73, name: 'C#5', time: 5.66, duration: 0.3 },
+          { midi: 74, name: 'D5', time: 6.00, duration: 0.3 },
+          { midi: 76, name: 'E5', time: 6.33, duration: 0.3 },
+          { midi: 78, name: 'F#5', time: 6.66, duration: 0.3 },
+          { midi: 76, name: 'E5', time: 7.00, duration: 0.3 },
+          { midi: 74, name: 'D5', time: 7.33, duration: 0.3 },
+          { midi: 73, name: 'C#5', time: 7.66, duration: 0.3 }
+        ]
+      }
+    };
+
+    // ==========================================
+    // 6. Monophonic Conversion Algorithm
+    // ==========================================
+    function monophonizeNotes(rawNotes, strategy = 'highest', gateRatio = 0.85, transpose = 0) {
+      if (!rawNotes || rawNotes.length === 0) return [];
+
+      // Apply transpose to raw notes
+      const notes = rawNotes.map(n => {
+        const transposedMidi = Math.min(108, Math.max(21, n.midi + transpose));
+        return {
+          ...n,
+          midi: transposedMidi,
+          name: midiToName(transposedMidi)
+        };
+      });
+
+      // Extract unique time slice points
+      const timeSet = new Set();
+      notes.forEach(n => {
+        timeSet.add(Math.round(n.time * 1000) / 1000);
+        timeSet.add(Math.round((n.time + n.duration) * 1000) / 1000);
+      });
+      const times = Array.from(timeSet).sort((a, b) => a - b);
+
+      const slices = [];
+      for (let i = 0; i < times.length - 1; i++) {
+        const t0 = times[i];
+        const t1 = times[i + 1];
+        const dt = t1 - t0;
+        if (dt < 0.01) continue; // Skip micro glitches < 10ms
+
+        const midT = (t0 + t1) / 2;
+        const active = notes.filter(n => n.time <= midT && (n.time + n.duration) >= midT);
+
+        if (active.length > 0) {
+          let chosen = active[0];
+          for (let j = 1; j < active.length; j++) {
+            if (strategy === 'highest' && active[j].midi > chosen.midi) {
+              chosen = active[j];
+            } else if (strategy === 'lowest' && active[j].midi < chosen.midi) {
+              chosen = active[j];
+            } else if (strategy === 'velocity' && (active[j].velocity || 0.8) > (chosen.velocity || 0.8)) {
+              chosen = active[j];
+            }
+          }
+          slices.push({
+            time: t0,
+            duration: dt,
+            midi: chosen.midi,
+            name: chosen.name,
+            velocity: chosen.velocity || 0.8
+          });
+        }
+      }
+
+      // Merge contiguous identical notes
+      const merged = [];
+      for (let i = 0; i < slices.length; i++) {
+        const cur = slices[i];
+        if (merged.length > 0) {
+          const prev = merged[merged.length - 1];
+          if (Math.abs((prev.time + prev.duration) - cur.time) < 0.015 && prev.midi === cur.midi) {
+            prev.duration += cur.duration;
+            continue;
+          }
+        }
+        merged.push({ ...cur });
+      }
+
+      // Apply Gate Ratio & Compute Frequencies
+      return merged.map(n => {
+        const playDuration = Math.max(0.03, n.duration * gateRatio);
+        const freq = midiToFreq(n.midi);
+        return {
+          time: n.time,
+          duration: n.duration,
+          playDuration: playDuration,
+          durationMs: Math.round(playDuration * 1000),
+          midi: n.midi,
+          name: n.name,
+          freq: Math.round(freq * 10) / 10,
+          freqRounded: Math.round(freq)
+        };
+      });
+    }
+
+    // ==========================================
+    // 7. Main Application State & Engine
+    // ==========================================
+    class App {
+      constructor() {
+        this.ble = new BleManager();
+        this.synth = new LocalSynth();
+
+        this.rawMidi = null;
+        this.parsedTracks = [];
+        this.selectedTrack = 'all';
+        this.polyStrategy = 'highest';
+        this.transpose = 0;
+        this.speed = 1.0;
+        this.gateRatio = 0.85;
+        this.isLooping = false;
+        this.isLedSync = true;
+
+        this.melodySequence = [];
+        this.totalDuration = 0;
+
+        // Playback Engine State
+        this.isPlaying = false;
+        this.isPaused = false;
+        this.playbackStartTime = 0;
+        this.currentPlayTime = 0;
+        this.nextNoteIndex = 0;
+        this.animFrameId = null;
+
+        this.packetLogs = [];
+      }
+
+      init() {
+        this.checkBleSupport();
+        this.bindEvents();
+        this.initCanvas();
+        this.loadPreset('mario'); // Load Mario theme as default
+        lucide.createIcons();
+      }
+
+      checkBleSupport() {
+        if (!navigator.bluetooth) {
+          document.getElementById('bleWarningBanner').classList.remove('hidden');
+        }
+      }
+
+      bindEvents() {
+        // BLE Connect Button
+        document.getElementById('btnBleConnect').addEventListener('click', async () => {
+          if (this.ble.isConnected) {
+            await this.ble.disconnect();
+          } else {
+            try {
+              await this.ble.connect();
+            } catch (err) {
+              this.log('ERR', err.message);
+              alert('Bluetooth接続に失敗しました:\n' + err.message);
+            }
+          }
+        });
+
+        // Test Beep
+        document.getElementById('btnBleTestBeep').addEventListener('click', async () => {
+          if (this.ble.isConnected) {
+            await this.ble.playNote(440, 200); // 440Hz 200ms
+            if (this.synth.isEnabled) this.synth.playTone(440, 0.2);
+          }
+        });
+
+        // Test LED
+        document.getElementById('btnBleTestLed').addEventListener('click', async () => {
+          if (this.ble.isConnected) {
+            await this.ble.setLights(3, 14, 165, 233); // Spin Cyan
+          }
+        });
+
+        // File Input & Drag and Drop
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        fileInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files[0]) {
+            this.handleMidiFile(e.target.files[0]);
+          }
+        });
+
+        ['dragenter', 'dragover'].forEach(name => {
+          dropZone.addEventListener(name, (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-emerald-500', 'bg-slate-900');
+          });
+        });
+
+        ['dragleave', 'drop'].forEach(name => {
+          dropZone.addEventListener(name, (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-emerald-500', 'bg-slate-900');
+          });
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            this.handleMidiFile(e.dataTransfer.files[0]);
+          }
+        });
+
+        // Presets Buttons
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const key = btn.getAttribute('data-preset');
+            this.loadPreset(key);
+          });
+        });
+
+        // Track Selector
+        document.getElementById('trackSelect').addEventListener('change', (e) => {
+          this.selectedTrack = e.target.value;
+          this.processMidiData();
+        });
+
+        // Polyphonic Strategy Selector
+        document.getElementById('polyStrategySelect').addEventListener('change', (e) => {
+          this.polyStrategy = e.target.value;
+          this.processMidiData();
+        });
+
+        // Transpose Buttons
+        document.getElementById('btnTransposeDown').addEventListener('click', () => {
+          this.setTranspose(this.transpose - 1);
+        });
+        document.getElementById('btnTransposeUp').addEventListener('click', () => {
+          this.setTranspose(this.transpose + 1);
+        });
+
+        // Speed Select
+        document.getElementById('speedSelect').addEventListener('change', (e) => {
+          this.speed = parseFloat(e.target.value) || 1.0;
+        });
+
+        // Gate Ratio Slider
+        document.getElementById('gateRatioSlider').addEventListener('input', (e) => {
+          this.gateRatio = parseFloat(e.target.value);
+          document.getElementById('gateRatioDisplay').textContent = Math.round(this.gateRatio * 100) + '%';
+          this.processMidiData();
+        });
+
+        // Web Audio Synth Toggle
+        document.getElementById('toggleWebAudio').addEventListener('change', (e) => {
+          this.synth.isEnabled = e.target.checked;
+          if (!this.synth.isEnabled) this.synth.stopTone();
+        });
+
+        // LED Sync Toggle
+        document.getElementById('toggleLedSync').addEventListener('change', (e) => {
+          this.isLedSync = e.target.checked;
+        });
+
+        // Playback Transport Buttons
+        document.getElementById('btnPlay').addEventListener('click', () => {
+          if (this.isPlaying) {
+            this.pause();
+          } else {
+            this.play();
+          }
+        });
+
+        document.getElementById('btnPause').addEventListener('click', () => this.pause());
+        document.getElementById('btnStop').addEventListener('click', () => this.stop());
+
+        document.getElementById('btnLoop').addEventListener('click', (e) => {
+          this.isLooping = !this.isLooping;
+          const btn = document.getElementById('btnLoop');
+          if (this.isLooping) {
+            btn.classList.add('bg-emerald-600', 'text-white');
+            btn.classList.remove('bg-slate-800', 'text-slate-400');
+          } else {
+            btn.classList.remove('bg-emerald-600', 'text-white');
+            btn.classList.add('bg-slate-800', 'text-slate-400');
+          }
+        });
+
+        // Scrubber / Seek Slider
+        const seekSlider = document.getElementById('seekSlider');
+        seekSlider.addEventListener('input', (e) => {
+          const seekPos = parseFloat(e.target.value);
+          this.seekTo(seekPos);
+        });
+
+        // Log Panel Toggle
+        document.getElementById('btnToggleLog').addEventListener('click', () => {
+          const container = document.getElementById('logContainer');
+          const icon = document.getElementById('logToggleIcon');
+          const isHidden = container.classList.contains('hidden');
+          if (isHidden) {
+            container.classList.remove('hidden');
+            icon.classList.add('rotate-180');
+          } else {
+            container.classList.add('hidden');
+            icon.classList.remove('rotate-180');
+          }
+        });
+
+        // Clear Log
+        document.getElementById('btnClearLog').addEventListener('click', () => {
+          this.packetLogs = [];
+          document.getElementById('logList').innerHTML = '<div class="text-slate-500 italic text-[11px]">ログをクリアしました。</div>';
+          document.getElementById('logCountBadge').textContent = '0 packets';
+        });
+
+        // Window resize for canvas
+        window.addEventListener('resize', () => this.resizeCanvas());
+      }
+
+      setTranspose(val) {
+        this.transpose = Math.min(24, Math.max(-24, val));
+        document.getElementById('transposeDisplay').textContent = (this.transpose > 0 ? '+' : '') + this.transpose;
+        this.processMidiData();
+      }
+
+      // Load a preset song
+      loadPreset(key) {
+        const preset = PRESETS[key];
+        if (!preset) return;
+
+        this.rawMidi = null;
+        this.parsedTracks = [{
+          name: preset.title,
+          notes: preset.notes
+        }];
+
+        document.getElementById('songTitleDisplay').textContent = preset.title;
+        document.getElementById('songMetaDisplay').textContent = `プリセット楽曲 / テンポ: ${preset.bpm} BPM`;
+        document.getElementById('statDuration').textContent = formatTime(preset.notes[preset.notes.length - 1].time + preset.notes[preset.notes.length - 1].duration);
+        document.getElementById('statNotesCount').textContent = `${preset.notes.length} 音`;
+        document.getElementById('statTracksCount').textContent = '1';
+        document.getElementById('statBpm').textContent = `${preset.bpm}`;
+
+        // Populate track select
+        const trackSelect = document.getElementById('trackSelect');
+        trackSelect.innerHTML = `<option value="all">全トラック (${preset.notes.length} 音)</option>`;
+        this.selectedTrack = 'all';
+
+        this.processMidiData();
+        this.log('INFO', `プリセット読み込み: ${preset.title}`);
+      }
+
+      // Handle user uploaded MIDI file
+      async handleMidiFile(file) {
+        try {
+          this.log('INFO', `MIDIファイル解析中: ${file.name} (${Math.round(file.size / 1024)} KB)...`);
+          const arrayBuffer = await file.arrayBuffer();
+          
+          if (!window.Midi) {
+            throw new Error('@tonejs/midi ライブラリがロードされていません。');
+          }
+
+          const midi = new Midi(arrayBuffer);
+          this.rawMidi = midi;
+
+          const title = midi.name || file.name.replace(/\.[^/.]+$/, "");
+          document.getElementById('songTitleDisplay').textContent = title;
+          
+          const bpm = midi.header.tempos && midi.header.tempos.length > 0 ? Math.round(midi.header.tempos[0].bpm) : 120;
+          document.getElementById('songMetaDisplay').textContent = `MIDIファイル: ${file.name} | PPQ: ${midi.header.ppq || 480}`;
+          document.getElementById('statDuration').textContent = formatTime(midi.duration);
+          document.getElementById('statTracksCount').textContent = `${midi.tracks.length}`;
+          document.getElementById('statBpm').textContent = `${bpm}`;
+
+          // Parse and populate track selector
+          const trackSelect = document.getElementById('trackSelect');
+          trackSelect.innerHTML = '';
+
+          let totalNotes = 0;
+          this.parsedTracks = [];
+
+          midi.tracks.forEach((track, idx) => {
+            if (track.notes && track.notes.length > 0) {
+              totalNotes += track.notes.length;
+              this.parsedTracks.push({
+                index: idx,
+                name: track.name || `Track ${idx + 1} (${track.instrument ? track.instrument.name : 'Channel ' + (track.channel + 1)})`,
+                notes: track.notes
+              });
+            }
+          });
+
+          document.getElementById('statNotesCount').textContent = `${totalNotes} 音`;
+
+          if (this.parsedTracks.length === 0) {
+            trackSelect.innerHTML = '<option value="none">ノートが見つかりませんでした</option>';
+            alert('このMIDIファイルにはノートイベントが見つかりませんでした。');
+            return;
+          }
+
+          // Add 'All Tracks' option
+          const optAll = document.createElement('option');
+          optAll.value = 'all';
+          optAll.textContent = `全トラック統合 (計 ${totalNotes} 音)`;
+          trackSelect.appendChild(optAll);
+
+          // Add individual tracks
+          this.parsedTracks.forEach((t) => {
+            const opt = document.createElement('option');
+            opt.value = t.index;
+            opt.textContent = `[Track ${t.index + 1}] ${t.name} (${t.notes.length} 音)`;
+            trackSelect.appendChild(opt);
+          });
+
+          // Pick melody track (first non-percussion track with highest note count)
+          this.selectedTrack = 'all';
+          trackSelect.value = 'all';
+
+          this.processMidiData();
+          this.log('INFO', `MIDI読み込み完了: ${title} (${this.parsedTracks.length} トラック, ${totalNotes} 音)`);
+
+        } catch (err) {
+          console.error('MIDI parse error:', err);
+          this.log('ERR', `MIDI解析エラー: ${err.message}`);
+          alert('MIDIファイルの解析に失敗しました:\n' + err.message);
+        }
+      }
+
+      // Convert loaded track(s) into monophonic sequence
+      processMidiData() {
+        if (!this.parsedTracks || this.parsedTracks.length === 0) return;
+
+        let rawNotes = [];
+        if (this.selectedTrack === 'all') {
+          this.parsedTracks.forEach(t => {
+            rawNotes = rawNotes.concat(t.notes);
+          });
+        } else {
+          const trackIndex = parseInt(this.selectedTrack, 10);
+          const tr = this.parsedTracks.find(t => t.index === trackIndex);
+          if (tr) rawNotes = tr.notes;
+        }
+
+        // Run monophonic converter
+        this.melodySequence = monophonizeNotes(rawNotes, this.polyStrategy, this.gateRatio, this.transpose);
+        
+        if (this.melodySequence.length > 0) {
+          const last = this.melodySequence[this.melodySequence.length - 1];
+          this.totalDuration = last.time + last.duration;
+        } else {
+          this.totalDuration = 0;
+        }
+
+        document.getElementById('totalTimeDisplay').textContent = formatTime(this.totalDuration);
+        document.getElementById('seekSlider').max = Math.max(1, this.totalDuration);
+        document.getElementById('statNotesCount').textContent = `${this.melodySequence.length} 音 (単音)`;
+
+        // Reset playback position
+        this.stop();
+        this.drawPianoRoll();
+      }
+
+      // ==========================================
+      // Playback Engine Implementation
+      // ==========================================
+      play() {
+        if (this.melodySequence.length === 0) return;
+        this.synth.init();
+
+        this.isPlaying = true;
+        this.isPaused = false;
+
+        document.getElementById('btnPlay').classList.add('bg-amber-600', 'hover:bg-amber-500');
+        document.getElementById('btnPlay').classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
+        document.getElementById('btnPlayText').textContent = '一時停止';
+        document.getElementById('btnPause').disabled = false;
+        document.getElementById('btnStop').disabled = false;
+
+        this.playbackStartTime = performance.now() - (this.currentPlayTime * 1000 / this.speed);
+        
+        this.engineLoop();
+        this.log('INFO', `再生開始: 位置 ${formatTime(this.currentPlayTime)}`);
+      }
+
+      pause() {
+        if (!this.isPlaying) return;
+        this.isPlaying = false;
+        this.isPaused = true;
+
+        if (this.animFrameId) cancelAnimationFrame(this.animFrameId);
+
+        this.ble.stopSound();
+        this.synth.stopTone();
+
+        document.getElementById('btnPlay').classList.remove('bg-amber-600', 'hover:bg-amber-500');
+        document.getElementById('btnPlay').classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+        document.getElementById('btnPlayText').textContent = '再開';
+
+        this.resetActiveNoteBadge();
+        this.drawPianoRoll();
+        this.log('INFO', `一時停止: 位置 ${formatTime(this.currentPlayTime)}`);
+      }
+
+      stop() {
+        this.isPlaying = false;
+        this.isPaused = false;
+
+        if (this.animFrameId) cancelAnimationFrame(this.animFrameId);
+
+        this.ble.stopSound();
+        this.synth.stopTone();
+
+        if (this.ble.isConnected) {
+          this.ble.setLights(0, 0, 0, 0);
+        }
+
+        this.currentPlayTime = 0;
+        this.nextNoteIndex = 0;
+
+        document.getElementById('btnPlay').classList.remove('bg-amber-600', 'hover:bg-amber-500');
+        document.getElementById('btnPlay').classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+        document.getElementById('btnPlayText').textContent = '再生';
+        document.getElementById('btnPause').disabled = true;
+        document.getElementById('btnStop').disabled = true;
+
+        document.getElementById('currentTimeDisplay').textContent = formatTime(0);
+        document.getElementById('seekSlider').value = 0;
+
+        this.resetActiveNoteBadge();
+        this.drawPianoRoll();
+      }
+
+      seekTo(timeInSec) {
+        this.currentPlayTime = Math.max(0, Math.min(this.totalDuration, timeInSec));
+        document.getElementById('currentTimeDisplay').textContent = formatTime(this.currentPlayTime);
+        document.getElementById('seekSlider').value = this.currentPlayTime;
+
+        // Find next note index
+        this.nextNoteIndex = this.melodySequence.findIndex(n => (n.time + n.duration) > this.currentPlayTime);
+        if (this.nextNoteIndex === -1) this.nextNoteIndex = this.melodySequence.length;
+
+        if (this.isPlaying) {
+          this.ble.stopSound();
+          this.synth.stopTone();
+          this.playbackStartTime = performance.now() - (this.currentPlayTime * 1000 / this.speed);
+        }
+
+        this.drawPianoRoll();
+      }
+
+      engineLoop() {
+        if (!this.isPlaying) return;
+
+        const now = performance.now();
+        this.currentPlayTime = ((now - this.playbackStartTime) / 1000) * this.speed;
+
+        // Update timecode and slider
+        document.getElementById('currentTimeDisplay').textContent = formatTime(this.currentPlayTime);
+        document.getElementById('seekSlider').value = this.currentPlayTime;
+
+        // Check if finished
+        if (this.currentPlayTime >= this.totalDuration) {
+          if (this.isLooping) {
+            this.seekTo(0);
+          } else {
+            this.stop();
+            return;
+          }
+        }
+
+        // Trigger notes
+        while (this.nextNoteIndex < this.melodySequence.length) {
+          const note = this.melodySequence[this.nextNoteIndex];
+          if (this.currentPlayTime >= note.time) {
+            this.triggerNote(note);
+            this.nextNoteIndex++;
+          } else {
+            break;
+          }
+        }
+
+        // Update active note display & visualizer
+        this.updateActiveNoteDisplay();
+        this.drawPianoRoll();
+
+        this.animFrameId = requestAnimationFrame(() => this.engineLoop());
+      }
+
+      triggerNote(note) {
+        const actualDurationSec = note.playDuration / this.speed;
+        const actualDurationMs = Math.round(actualDurationSec * 1000);
+
+        // 1. Send BLE packet to Root Robot
+        if (this.ble.isConnected) {
+          this.ble.playNote(note.freq, actualDurationMs);
+
+          // LED flash sync
+          if (this.isLedSync) {
+            // Map pitch to vibrant RGB hue
+            const hue = ((note.midi - 36) * 7) % 360;
+            const rgb = this.hslToRgb(hue / 360, 1.0, 0.5);
+            this.ble.setLights(1, rgb.r, rgb.g, rgb.b); // On
+          }
+        }
+
+        // 2. Play Web Audio synthesizer preview
+        if (this.synth.isEnabled) {
+          this.synth.playTone(note.freq, actualDurationSec);
+        }
+      }
+
+      updateActiveNoteDisplay() {
+        const cur = this.melodySequence.find(n => this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration));
+        if (cur) {
+          document.getElementById('activeNoteName').textContent = cur.name;
+          document.getElementById('activeNoteFreq').textContent = `${cur.freq} Hz`;
+          document.getElementById('activeNoteBadge').classList.add('border-emerald-500', 'bg-emerald-950/30');
+        } else {
+          this.resetActiveNoteBadge();
+        }
+      }
+
+      resetActiveNoteBadge() {
+        document.getElementById('activeNoteName').textContent = '---';
+        document.getElementById('activeNoteFreq').textContent = '0 Hz';
+        document.getElementById('activeNoteBadge').classList.remove('border-emerald-500', 'bg-emerald-950/30');
+      }
+
+      hslToRgb(h, s, l) {
+        let r, g, b;
+        if (s === 0) {
+          r = g = b = l;
+        } else {
+          const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+          };
+          const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+          const p = 2 * l - q;
+          r = hue2rgb(p, q, h + 1/3);
+          g = hue2rgb(p, q, h);
+          b = hue2rgb(p, q, h - 1/3);
+        }
+        return {
+          r: Math.round(r * 255),
+          g: Math.round(g * 255),
+          b: Math.round(b * 255)
+        };
+      }
+
+      // ==========================================
+      // 8. Visualizer / Piano Roll Canvas
+      // ==========================================
+      initCanvas() {
+        this.canvas = document.getElementById('pianoRollCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.resizeCanvas();
+
+        // Click to seek on piano roll
+        this.canvas.addEventListener('click', (e) => {
+          if (this.totalDuration <= 0) return;
+          const rect = this.canvas.getBoundingClientRect();
+          const clickX = e.clientX - rect.left;
+          const ratio = clickX / rect.width;
+          const targetTime = ratio * this.totalDuration;
+          this.seekTo(targetTime);
+        });
+      }
+
+      resizeCanvas() {
+        if (!this.canvas) return;
+        const rect = this.canvas.parentElement.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        this.canvas.width = rect.width * dpr;
+        this.canvas.height = rect.height * dpr;
+        this.ctx.scale(dpr, dpr);
+        this.canvasWidth = rect.width;
+        this.canvasHeight = rect.height;
+        this.drawPianoRoll();
+      }
+
+      drawPianoRoll() {
+        if (!this.ctx || !this.canvasWidth || !this.canvasHeight) return;
+
+        const w = this.canvasWidth;
+        const h = this.canvasHeight;
+        const ctx = this.ctx;
+
+        // Background
+        ctx.fillStyle = '#020617'; // slate-950
+        ctx.fillRect(0, 0, w, h);
+
+        // Draw horizontal pitch guide lines
+        ctx.strokeStyle = 'rgba(51, 65, 85, 0.4)'; // slate-700
+        ctx.lineWidth = 1;
+        const numPitchLines = 12;
+        for (let i = 0; i <= numPitchLines; i++) {
+          const y = (h / numPitchLines) * i;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+          ctx.stroke();
+        }
+
+        if (this.melodySequence.length === 0 || this.totalDuration <= 0) {
+          ctx.fillStyle = '#64748b';
+          ctx.font = '12px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('楽曲データを読み込むとノートが表示されます', w / 2, h / 2);
+          return;
+        }
+
+        // Find min and max MIDI notes
+        let minMidi = 127, maxMidi = 0;
+        this.melodySequence.forEach(n => {
+          if (n.midi < minMidi) minMidi = n.midi;
+          if (n.midi > maxMidi) maxMidi = n.midi;
+        });
+        minMidi = Math.max(24, minMidi - 2);
+        maxMidi = Math.min(108, maxMidi + 2);
+        const midiRange = Math.max(12, maxMidi - minMidi);
+
+        // Draw note rectangles
+        this.melodySequence.forEach(n => {
+          const x = (n.time / this.totalDuration) * w;
+          const noteWidth = Math.max(3, (n.duration / this.totalDuration) * w - 1.5);
+          const normPitch = (n.midi - minMidi) / midiRange;
+          const y = h - (normPitch * (h - 20)) - 15;
+          const noteHeight = Math.max(6, Math.min(16, (h / midiRange) * 0.9));
+
+          const isCurrent = this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration);
+
+          if (isCurrent) {
+            // Glowing active note
+            ctx.fillStyle = '#34d399'; // emerald-400
+            ctx.shadowColor = '#10b981';
+            ctx.shadowBlur = 12;
+          } else if (n.time < this.currentPlayTime) {
+            // Past note
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.35)'; // faded emerald
+            ctx.shadowBlur = 0;
+          } else {
+            // Upcoming note
+            ctx.fillStyle = 'rgba(52, 211, 153, 0.75)';
+            ctx.shadowBlur = 0;
+          }
+
+          // Rounded rect for note
+          ctx.beginPath();
+          ctx.roundRect(x, y, noteWidth, noteHeight, 3);
+          ctx.fill();
+          ctx.shadowBlur = 0; // Reset shadow
+        });
+
+        // Draw Playhead line
+        const playheadX = (this.currentPlayTime / this.totalDuration) * w;
+        ctx.strokeStyle = '#38bdf8'; // sky-400
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#0ea5e9';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(playheadX, 0);
+        ctx.lineTo(playheadX, h);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Playhead triangle cursor at top
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.moveTo(playheadX - 5, 0);
+        ctx.lineTo(playheadX + 5, 0);
+        ctx.lineTo(playheadX, 8);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // ==========================================
+      // 9. BLE UI & Logging
+      // ==========================================
+      updateBleUI() {
+        const dot = document.getElementById('bleStatusDot');
+        const text = document.getElementById('bleStatusText');
+        const btn = document.getElementById('btnBleConnect');
+        const btnLabel = document.getElementById('btnBleConnectLabel');
+        const testBeep = document.getElementById('btnBleTestBeep');
+        const testLed = document.getElementById('btnBleTestLed');
+
+        if (this.ble.isConnected) {
+          dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 pulse-animation';
+          text.className = 'text-emerald-400 font-semibold';
+          text.textContent = this.ble.device ? this.ble.device.name || 'Root接続中' : 'Root接続中';
+
+          btn.className = 'flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-red-600 hover:bg-red-500 text-white shadow-md shadow-red-950/50 transition active:scale-95';
+          btnLabel.textContent = '切断';
+
+          testBeep.disabled = false;
+          testLed.disabled = false;
+        } else {
+          dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-500';
+          text.className = 'text-slate-300';
+          text.textContent = '未接続';
+
+          btn.className = 'flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-950/50 hover:shadow-emerald-900/40 transition active:scale-95';
+          btnLabel.textContent = 'Rootに接続';
+
+          testBeep.disabled = true;
+          testLed.disabled = true;
+        }
+        lucide.createIcons();
+      }
+
+      log(type, message) {
+        const time = new Date().toLocaleTimeString();
+        console.log(`[${time}] [${type}] ${message}`);
+
+        const list = document.getElementById('logList');
+        const item = document.createElement('div');
+        item.className = 'flex items-start gap-2 py-0.5 text-[11px]';
+
+        let badgeColor = 'text-slate-400';
+        if (type === 'BLE') badgeColor = 'text-emerald-400';
+        if (type === 'ERR') badgeColor = 'text-red-400 font-bold';
+        if (type === 'INFO') badgeColor = 'text-cyan-400';
+
+        item.innerHTML = `
+          <span class="text-slate-500 select-none">${time}</span>
+          <span class="font-bold ${badgeColor}">[${type}]</span>
+          <span class="text-slate-300">${message}</span>
+        `;
+
+        list.appendChild(item);
+        if (list.children.length > 100) list.removeChild(list.children[0]);
+        list.parentElement.scrollTop = list.parentElement.scrollHeight;
+      }
+
+      logPacket(dir, bytes, desc) {
+        const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+        const count = ++this.packetLogs.length;
+        document.getElementById('logCountBadge').textContent = `${count} packets`;
+
+        const time = new Date().toLocaleTimeString();
+        const list = document.getElementById('logList');
+        const item = document.createElement('div');
+        item.className = 'flex items-start gap-2 py-0.5 text-[11px] border-b border-slate-900/50';
+
+        const dirColor = dir === 'TX' ? 'text-cyan-400' : 'text-amber-400';
+
+        item.innerHTML = `
+          <span class="text-slate-500 select-none">${time}</span>
+          <span class="font-bold ${dirColor}">[${dir}]</span>
+          <span class="text-slate-200">${desc}</span>
+          <span class="text-slate-500 font-mono text-[10px] ml-auto truncate max-w-[280px]" title="${hex}">${hex}</span>
+        `;
+
+        list.appendChild(item);
+        if (list.children.length > 100) list.removeChild(list.children[0]);
+        list.parentElement.scrollTop = list.parentElement.scrollHeight;
+      }
+    }
+
+    // Initialize Application
+    const app = new App();
+    window.addEventListener('DOMContentLoaded', () => app.init());
+  </script>
+</body>
+</html>
