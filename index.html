@@ -54,9 +54,9 @@
           <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
             Root Ensemble Player
           </h1>
-          <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">Multi-Robot BLE</span>
+          <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">Multi-Robot + PC Multi-Track</span>
         </div>
-        <p class="text-xs text-slate-400">複数台の iRobot Root ＋ PC音源による自動パート割り当て合奏コントローラー</p>
+        <p class="text-xs text-slate-400">Root に主旋律メロディ、PC 側にドラム・ベース・ギター・シンセ複数伴奏を最適自動割り当て</p>
       </div>
     </div>
 
@@ -100,13 +100,13 @@
           </div>
           <div>
             <h2 class="text-sm font-bold text-white">アンサンブル編成・パート割り当て</h2>
-            <p class="text-[11px] text-slate-400">接続された各 Root ロボットおよび PC音源に最適なトラック/パートを配分します</p>
+            <p class="text-[11px] text-slate-400">Root ロボットに主旋律、PC 音源にドラム・ベース・シンセ等の複数伴奏パートを配分します</p>
           </div>
         </div>
 
         <div class="flex items-center gap-2">
           <!-- Auto Optimize Button -->
-          <button id="btnAutoOptimize" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow transition active:scale-95">
+          <button id="btnAutoOptimize" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow transition active:scale-95">
             <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
             <span>パート自動最適化</span>
           </button>
@@ -114,20 +114,21 @@
       </div>
 
       <!-- Device Cards Container -->
-      <div id="deviceCardsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        <!-- PC Audio Device Card (Always available) -->
-        <div id="pcAudioCard" class="bg-slate-800/80 border border-sky-500/30 rounded-xl p-3.5 flex flex-col justify-between space-y-3 relative overflow-hidden">
+      <div id="deviceCardsList" class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        
+        <!-- PC Audio Device Card (Span 6 on LG) -->
+        <div id="pcAudioCard" class="lg:col-span-6 bg-slate-800/80 border border-sky-500/40 rounded-xl p-4 flex flex-col justify-between space-y-3 relative shadow-lg shadow-sky-950/20">
           <div class="flex items-start justify-between gap-2">
             <div class="flex items-center gap-2.5">
-              <div class="w-8 h-8 rounded-lg bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400 flex-shrink-0">
-                <i data-lucide="laptop" class="w-4 h-4"></i>
+              <div class="w-9 h-9 rounded-lg bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400 flex-shrink-0">
+                <i data-lucide="laptop" class="w-5 h-5"></i>
               </div>
               <div>
                 <div class="flex items-center gap-1.5">
-                  <span class="text-xs font-bold text-sky-300">PC / ブラウザ音源</span>
-                  <span class="text-[9px] font-semibold uppercase px-1.5 py-0.2 bg-sky-500/20 text-sky-300 rounded">Synth</span>
+                  <span class="text-xs font-bold text-sky-300">PC / ブラウザ音源 (マルチパートシンセ)</span>
+                  <span id="pcPartCountBadge" class="text-[10px] font-semibold px-1.5 py-0.2 bg-sky-500/20 text-sky-300 rounded border border-sky-500/30">0 パート担当</span>
                 </div>
-                <div id="pcActiveNoteDisplay" class="text-[11px] font-mono text-slate-400">待機中</div>
+                <div id="pcActiveNoteDisplay" class="text-[11px] font-mono text-slate-400 mt-0.5">待機中</div>
               </div>
             </div>
             <!-- Enable Toggle -->
@@ -137,36 +138,49 @@
             </label>
           </div>
 
-          <!-- Part Assignment Selector -->
-          <div class="space-y-1 text-xs">
-            <div class="flex items-center justify-between text-[11px] text-slate-400">
-              <span>担当パート:</span>
-              <span id="pcAssignedRoleBadge" class="text-[10px] text-sky-400 font-medium">自動割り当て</span>
+          <!-- PC Mode Selector & Assigned Tracks -->
+          <div class="space-y-2 text-xs bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-slate-300">PC担当パート設定:</span>
+              <select id="pcModeSelect" class="bg-slate-800 border border-slate-700 text-sky-400 font-semibold rounded px-2 py-1 text-[11px] focus:outline-none">
+                <option value="auto" selected>⚡ 自動 (Root以外の全伴奏・リズム・コード隊)</option>
+                <option value="all">全トラック (Full Mix)</option>
+                <option value="custom">カスタム選択 (手動チェック)</option>
+              </select>
             </div>
-            <select id="pcPartSelect" class="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none">
-              <option value="auto" selected>⚡ 自動 (Rootと別パートを担当)</option>
-              <option value="all">全トラック統合 (All Merged)</option>
-            </select>
+
+            <!-- Multi-track Checkbox Container -->
+            <div class="space-y-1">
+              <div class="text-[10px] text-slate-400">現在PC側で同時演奏中のトラック:</div>
+              <div id="pcTrackCheckboxList" class="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pt-0.5">
+                <span class="text-[11px] text-slate-500 italic">楽曲を読み込むと担当トラックが表示されます</span>
+              </div>
+            </div>
           </div>
 
           <!-- Volume & Mute Row -->
-          <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-700/50 text-xs">
-            <div class="flex items-center gap-1.5 flex-1">
+          <div class="flex items-center justify-between gap-3 pt-1 border-t border-slate-700/50 text-xs">
+            <div class="flex items-center gap-2 flex-1">
               <i data-lucide="volume-2" class="w-3.5 h-3.5 text-slate-400"></i>
-              <input type="range" id="pcVolumeSlider" min="0" max="1" step="0.05" value="0.7" class="w-full h-1.5 bg-slate-700 rounded appearance-none accent-sky-400 cursor-pointer">
+              <span class="text-[10px] text-slate-400">音量</span>
+              <input type="range" id="pcVolumeSlider" min="0" max="1" step="0.05" value="0.75" class="w-full h-1.5 bg-slate-700 rounded appearance-none accent-sky-400 cursor-pointer">
             </div>
-            <button id="btnPcMute" class="px-2 py-1 rounded bg-slate-700/80 hover:bg-slate-700 text-[11px] text-slate-300 transition" title="ミュート">
+            <button id="btnPcMute" class="px-2.5 py-1 rounded bg-slate-700/80 hover:bg-slate-700 text-[11px] text-slate-300 transition" title="ミュート">
               消音
             </button>
           </div>
         </div>
 
-        <!-- Dynamic Root Robot Cards will be inserted here -->
+        <!-- Dynamic Root Robot Cards Grid (Span 6 on LG) -->
+        <div id="rootCardsSubgrid" class="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Root robot cards will be inserted here -->
+        </div>
+
       </div>
 
       <!-- Empty state if no Root robots connected -->
       <div id="noRootMessage" class="bg-slate-800/40 border border-dashed border-slate-700/80 rounded-xl p-4 text-center text-xs text-slate-400">
-        <p>現在 Root ロボットは接続されていません。「<span class="text-emerald-400 font-semibold">Rootを追加接続</span>」ボタンを押すと、1台以上のロボットをペアリングしてパート合奏を行えます。（PC音源のみでの試聴も可能です）</p>
+        <p>現在 Root ロボットは接続されていません。「<span class="text-emerald-400 font-semibold">Rootを追加接続</span>」ボタンを押すと、ロボットにメロディを割り当て、PC 側にドラム・ベース・シンセを割り当てて合奏できます。</p>
       </div>
     </section>
 
@@ -185,7 +199,7 @@
           <p class="text-sm font-medium text-slate-200 mb-1">
             <span class="text-emerald-400 font-semibold underline underline-offset-4">MIDIファイルを選択</span> またはドラッグ＆ドロップ
           </p>
-          <p class="text-xs text-slate-400">標準MIDIファイル (.mid, .midi) に対応</p>
+          <p class="text-xs text-slate-400">マルチトラック・ドラム・ベース入りMIDIに対応</p>
         </div>
 
         <!-- Presets -->
@@ -199,11 +213,11 @@
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <button data-preset="mario" class="preset-btn px-2.5 py-2 text-left bg-slate-800/80 hover:bg-emerald-950/40 hover:border-emerald-500/40 border border-slate-700/80 rounded-xl text-xs transition group">
               <div class="font-medium text-slate-200 group-hover:text-emerald-300 truncate">マリオのテーマ</div>
-              <div class="text-[10px] text-slate-400 truncate">Super Mario Bros.</div>
+              <div class="text-[10px] text-slate-400 truncate">メロディ＋ベース</div>
             </button>
             <button data-preset="twinkle" class="preset-btn px-2.5 py-2 text-left bg-slate-800/80 hover:bg-emerald-950/40 hover:border-emerald-500/40 border border-slate-700/80 rounded-xl text-xs transition group">
               <div class="font-medium text-slate-200 group-hover:text-emerald-300 truncate">きらきら星</div>
-              <div class="text-[10px] text-slate-400 truncate">童謡・モーツァルト</div>
+              <div class="text-[10px] text-slate-400 truncate">主旋律＋伴奏アルペジオ</div>
             </button>
             <button data-preset="ode_to_joy" class="preset-btn px-2.5 py-2 text-left bg-slate-800/80 hover:bg-emerald-950/40 hover:border-emerald-500/40 border border-slate-700/80 rounded-xl text-xs transition group">
               <div class="font-medium text-slate-200 group-hover:text-emerald-300 truncate">歓喜の歌 (第九)</div>
@@ -264,11 +278,10 @@
         <!-- Ensemble Allocation Summary -->
         <div class="pt-2 border-t border-slate-800/80 text-xs">
           <div class="flex items-center justify-between text-slate-400 mb-1.5">
-            <span class="font-semibold text-slate-300">現在のパート配分ステータス:</span>
+            <span class="font-semibold text-slate-300">オーケストレーション概要:</span>
             <span id="allocationStrategyText" class="text-emerald-400 font-mono text-[11px]">自動配分中</span>
           </div>
           <div id="allocationSummaryList" class="flex flex-wrap gap-1.5">
-            <!-- Dynamic pills for assigned parts -->
             <span class="px-2 py-0.5 rounded bg-slate-800 text-[11px] text-slate-400">楽曲を読み込むと配分が表示されます</span>
           </div>
         </div>
@@ -433,7 +446,7 @@
       CMD_SET_LIGHTS: 2,
     };
 
-    // Device Color Themes (Palette for Root slots)
+    // Device Color Themes for Root Slots
     const DEVICE_THEMES = [
       { id: 'emerald', name: 'Emerald', hex: '#10b981', rgb: [34, 197, 94], badgeClass: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
       { id: 'cyan',    name: 'Cyan',    hex: '#06b6d4', rgb: [6, 182, 212],  badgeClass: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
@@ -591,6 +604,8 @@
 
         this.assignedPart = 'auto'; // 'auto', 'track_X', 'voice_X', 'all'
         this.autoResolvedRole = '';
+        this.autoResolvedTrackIndex = null;
+        this.autoResolvedVoice = null;
         this.sequence = [];
         this.nextIndex = 0;
         this.currentNote = null;
@@ -623,7 +638,6 @@
         this.isConnected = true;
         app.log('BLE', `[${this.name}] 接続完了！`);
         
-        // Spin LED with slot color
         await this.setLights(3, this.theme.rgb[0], this.theme.rgb[1], this.theme.rgb[2]);
       }
 
@@ -702,67 +716,229 @@
     }
 
     // ==========================================
-    // 4. Web Audio Synthesizer (Local Preview / PC Device)
+    // 4. Advanced Polyphonic & Multi-Timbral PC Synthesizer
     // ==========================================
-    class LocalSynth {
+    class MultiTimbralPcSynth {
       constructor() {
         this.ctx = null;
-        this.currentOsc = null;
-        this.currentGain = null;
+        this.masterCompressor = null;
+        this.masterGain = null;
+        this.noiseBuffer = null;
+        this.activeVoices = [];
       }
 
       init() {
         if (!this.ctx) {
           const AudioContext = window.AudioContext || window.webkitAudioContext;
           this.ctx = new AudioContext();
+
+          // Master compressor/limiter to prevent distortion with multi-track polyphony
+          this.masterCompressor = this.ctx.createDynamicsCompressor();
+          this.masterCompressor.threshold.setValueAtTime(-18, this.ctx.currentTime);
+          this.masterCompressor.knee.setValueAtTime(12, this.ctx.currentTime);
+          this.masterCompressor.ratio.setValueAtTime(6, this.ctx.currentTime);
+          this.masterCompressor.attack.setValueAtTime(0.003, this.ctx.currentTime);
+          this.masterCompressor.release.setValueAtTime(0.15, this.ctx.currentTime);
+
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.setValueAtTime(0.75, this.ctx.currentTime);
+
+          this.masterCompressor.connect(this.masterGain);
+          this.masterGain.connect(this.ctx.destination);
+
+          // Generate 1-second white noise buffer for drums
+          const bufferSize = this.ctx.sampleRate;
+          this.noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const output = this.noiseBuffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1;
+          }
         }
         if (this.ctx.state === 'suspended') {
           this.ctx.resume();
         }
       }
 
-      playTone(freqHz, durationSec, volume = 0.7) {
+      setVolume(vol) {
+        if (this.masterGain && this.ctx) {
+          this.masterGain.gain.setValueAtTime(Math.max(0, Math.min(1, vol)), this.ctx.currentTime);
+        }
+      }
+
+      // Play Drum note (Kick, Snare, Hi-hat, Toms, Cymbals)
+      playDrum(midiPitch, durationSec, velocity = 0.8) {
         this.init();
-        this.stopTone();
+        const now = this.ctx.currentTime;
+        const vol = Math.max(0.2, velocity) * 0.4;
+
+        if (midiPitch === 35 || midiPitch === 36) {
+          // Bass Drum (Kick): Pitch drop sine 160Hz -> 35Hz
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(160, now);
+          osc.frequency.exponentialRampToValueAtTime(38, now + 0.12);
+
+          gain.gain.setValueAtTime(vol * 1.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+          osc.connect(gain);
+          gain.connect(this.masterCompressor);
+          osc.start(now);
+          osc.stop(now + 0.26);
+        } else if (midiPitch === 38 || midiPitch === 40) {
+          // Snare Drum: Tone (180Hz) + Noise burst
+          const osc = this.ctx.createOscillator();
+          const oscGain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(180, now);
+          osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+          oscGain.gain.setValueAtTime(vol * 0.7, now);
+          oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+          osc.connect(oscGain);
+          oscGain.connect(this.masterCompressor);
+          osc.start(now);
+          osc.stop(now + 0.13);
+
+          // Noise
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = this.noiseBuffer;
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'highpass';
+          filter.frequency.setValueAtTime(1000, now);
+          const noiseGain = this.ctx.createGain();
+          noiseGain.gain.setValueAtTime(vol * 0.9, now);
+          noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+          noise.connect(filter);
+          filter.connect(noiseGain);
+          noiseGain.connect(this.masterCompressor);
+          noise.start(now);
+          noise.stop(now + 0.19);
+        } else if (midiPitch === 42 || midiPitch === 44 || midiPitch === 46) {
+          // Hi-Hat: Highpass filtered noise (Closed vs Open)
+          const isOpen = (midiPitch === 46);
+          const hatDur = isOpen ? 0.25 : 0.045;
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = this.noiseBuffer;
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'highpass';
+          filter.frequency.setValueAtTime(7000, now);
+          const noiseGain = this.ctx.createGain();
+          noiseGain.gain.setValueAtTime(vol * 0.6, now);
+          noiseGain.gain.exponentialRampToValueAtTime(0.001, now + hatDur);
+          noise.connect(filter);
+          filter.connect(noiseGain);
+          noiseGain.connect(this.masterCompressor);
+          noise.start(now);
+          noise.stop(now + hatDur + 0.01);
+        } else {
+          // General Percussion: Bandpass noise
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = this.noiseBuffer;
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(2500, now);
+          const noiseGain = this.ctx.createGain();
+          noiseGain.gain.setValueAtTime(vol * 0.5, now);
+          noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+          noise.connect(filter);
+          filter.connect(noiseGain);
+          noiseGain.connect(this.masterCompressor);
+          noise.start(now);
+          noise.stop(now + 0.11);
+        }
+      }
+
+      // Play Melodic / Harmonic / Bass / Synth note
+      playInstrumentNote(freqHz, durationSec, trackCategory = 'harmony', velocity = 0.8) {
+        this.init();
+        const now = this.ctx.currentTime;
+        const dur = Math.max(0.04, durationSec);
+        const safeFreq = Math.max(25, Math.min(8000, freqHz || 440));
+        const baseVol = Math.max(0.2, velocity) * 0.25;
 
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
 
-        osc.type = 'square';
-        const safeFreq = Math.max(30, Math.min(8000, freqHz || 440));
-        osc.frequency.setValueAtTime(safeFreq, this.ctx.currentTime);
+        if (trackCategory === 'bass') {
+          // Warm Deep Bass: Triangle + Lowpass (320Hz)
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(safeFreq, now);
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(350, now);
 
-        const now = this.ctx.currentTime;
-        const attack = 0.005;
-        const decay = 0.02;
-        const dur = Math.max(0.04, durationSec);
-        const targetGain = Math.max(0.001, Math.min(0.3, volume * 0.2));
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(baseVol * 1.3, now + 0.008);
+          gain.gain.setValueAtTime(baseVol * 1.1, now + dur - 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
 
-        gain.gain.setValueAtTime(0.001, now);
-        gain.gain.exponentialRampToValueAtTime(targetGain, now + attack);
-        gain.gain.setValueAtTime(targetGain, now + dur - decay);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+          osc.connect(filter);
+          filter.connect(gain);
+        } else if (trackCategory === 'guitar') {
+          // Guitar / Pluck / Overdrive: Sawtooth + Bandpass/Lowpass with pluck envelope
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(safeFreq, now);
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(2200, now);
+          filter.frequency.exponentialRampToValueAtTime(600, now + dur);
 
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(baseVol * 0.9, now + 0.005);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
 
+          osc.connect(filter);
+          filter.connect(gain);
+        } else if (trackCategory === 'synth_pad') {
+          // Synth Pad / Strings: Soft pulse/saw with smooth attack
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(safeFreq, now);
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(1400, now);
+
+          const attack = Math.min(0.06, dur * 0.2);
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(baseVol * 0.7, now + attack);
+          gain.gain.setValueAtTime(baseVol * 0.7, now + dur - 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+          osc.connect(filter);
+          filter.connect(gain);
+        } else {
+          // Standard Harmony / Piano: Square / Filtered square
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(safeFreq, now);
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(2800, now);
+
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(baseVol * 0.8, now + 0.006);
+          gain.gain.setValueAtTime(baseVol * 0.8, now + dur - 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+          osc.connect(filter);
+          filter.connect(gain);
+        }
+
+        gain.connect(this.masterCompressor);
         osc.start(now);
         osc.stop(now + dur + 0.05);
 
-        this.currentOsc = osc;
-        this.currentGain = gain;
+        this.activeVoices.push({ osc, gain });
+        if (this.activeVoices.length > 32) {
+          const oldest = this.activeVoices.shift();
+          try { oldest.osc.stop(); } catch(e){}
+        }
       }
 
       stopTone() {
-        if (this.currentOsc) {
+        this.activeVoices.forEach(v => {
           try {
-            this.currentGain.gain.cancelScheduledValues(this.ctx.currentTime);
-            this.currentGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
-            this.currentOsc.stop(this.ctx.currentTime + 0.01);
-          } catch (e) {}
-          this.currentOsc = null;
-          this.currentGain = null;
-        }
+            v.gain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+            v.osc.stop(this.ctx.currentTime + 0.01);
+          } catch(e){}
+        });
+        this.activeVoices = [];
       }
     }
 
@@ -773,105 +949,233 @@
       mario: {
         title: "Super Mario Bros. - Overworld Theme",
         bpm: 180,
-        notes: [
-          { midi: 76, name: 'E5', time: 0.0, duration: 0.15 },
-          { midi: 76, name: 'E5', time: 0.20, duration: 0.15 },
-          { midi: 76, name: 'E5', time: 0.45, duration: 0.15 },
-          { midi: 72, name: 'C5', time: 0.70, duration: 0.15 },
-          { midi: 76, name: 'E5', time: 0.90, duration: 0.25 },
-          { midi: 79, name: 'G5', time: 1.25, duration: 0.35 },
-          { midi: 67, name: 'G4', time: 1.70, duration: 0.35 },
-          { midi: 72, name: 'C5', time: 2.20, duration: 0.30 },
-          { midi: 67, name: 'G4', time: 2.60, duration: 0.25 },
-          { midi: 64, name: 'E4', time: 2.95, duration: 0.25 },
-          { midi: 69, name: 'A4', time: 3.30, duration: 0.25 },
-          { midi: 71, name: 'B4', time: 3.65, duration: 0.25 },
-          { midi: 70, name: 'A#4', time: 4.00, duration: 0.20 },
-          { midi: 69, name: 'A4', time: 4.25, duration: 0.25 },
-          { midi: 67, name: 'G4', time: 4.60, duration: 0.25 },
-          { midi: 76, name: 'E5', time: 4.95, duration: 0.25 },
-          { midi: 79, name: 'G5', time: 5.30, duration: 0.25 },
-          { midi: 81, name: 'A5', time: 5.65, duration: 0.35 },
-          { midi: 77, name: 'F5', time: 6.10, duration: 0.20 },
-          { midi: 79, name: 'G5', time: 6.35, duration: 0.25 },
-          { midi: 76, name: 'E5', time: 6.70, duration: 0.25 },
-          { midi: 72, name: 'C5', time: 7.05, duration: 0.20 },
-          { midi: 74, name: 'D5', time: 7.30, duration: 0.20 },
-          { midi: 71, name: 'B4', time: 7.55, duration: 0.35 }
+        tracks: [
+          {
+            name: "Melody (Lead)",
+            category: "melody",
+            notes: [
+              { midi: 76, name: 'E5', time: 0.0, duration: 0.15 },
+              { midi: 76, name: 'E5', time: 0.20, duration: 0.15 },
+              { midi: 76, name: 'E5', time: 0.45, duration: 0.15 },
+              { midi: 72, name: 'C5', time: 0.70, duration: 0.15 },
+              { midi: 76, name: 'E5', time: 0.90, duration: 0.25 },
+              { midi: 79, name: 'G5', time: 1.25, duration: 0.35 },
+              { midi: 67, name: 'G4', time: 1.70, duration: 0.35 },
+              { midi: 72, name: 'C5', time: 2.20, duration: 0.30 },
+              { midi: 67, name: 'G4', time: 2.60, duration: 0.25 },
+              { midi: 64, name: 'E4', time: 2.95, duration: 0.25 },
+              { midi: 69, name: 'A4', time: 3.30, duration: 0.25 },
+              { midi: 71, name: 'B4', time: 3.65, duration: 0.25 },
+              { midi: 70, name: 'A#4', time: 4.00, duration: 0.20 },
+              { midi: 69, name: 'A4', time: 4.25, duration: 0.25 },
+              { midi: 67, name: 'G4', time: 4.60, duration: 0.25 },
+              { midi: 76, name: 'E5', time: 4.95, duration: 0.25 },
+              { midi: 79, name: 'G5', time: 5.30, duration: 0.25 },
+              { midi: 81, name: 'A5', time: 5.65, duration: 0.35 },
+              { midi: 77, name: 'F5', time: 6.10, duration: 0.20 },
+              { midi: 79, name: 'G5', time: 6.35, duration: 0.25 },
+              { midi: 76, name: 'E5', time: 6.70, duration: 0.25 },
+              { midi: 72, name: 'C5', time: 7.05, duration: 0.20 },
+              { midi: 74, name: 'D5', time: 7.30, duration: 0.20 },
+              { midi: 71, name: 'B4', time: 7.55, duration: 0.35 }
+            ]
+          },
+          {
+            name: "Bass & Rhythm",
+            category: "bass",
+            notes: [
+              { midi: 52, name: 'E3', time: 0.0, duration: 0.15 },
+              { midi: 52, name: 'E3', time: 0.20, duration: 0.15 },
+              { midi: 52, name: 'E3', time: 0.45, duration: 0.15 },
+              { midi: 48, name: 'C3', time: 0.70, duration: 0.15 },
+              { midi: 52, name: 'E3', time: 0.90, duration: 0.25 },
+              { midi: 43, name: 'G2', time: 1.25, duration: 0.35 },
+              { midi: 43, name: 'G2', time: 1.70, duration: 0.35 },
+              { midi: 48, name: 'C3', time: 2.20, duration: 0.30 },
+              { midi: 43, name: 'G2', time: 2.60, duration: 0.25 },
+              { midi: 40, name: 'E2', time: 2.95, duration: 0.25 },
+              { midi: 45, name: 'A2', time: 3.30, duration: 0.25 },
+              { midi: 47, name: 'B2', time: 3.65, duration: 0.25 },
+              { midi: 46, name: 'A#2', time: 4.00, duration: 0.20 },
+              { midi: 45, name: 'A2', time: 4.25, duration: 0.25 },
+              { midi: 43, name: 'G2', time: 4.60, duration: 0.25 },
+              { midi: 52, name: 'E3', time: 4.95, duration: 0.25 },
+              { midi: 55, name: 'G3', time: 5.30, duration: 0.25 },
+              { midi: 57, name: 'A3', time: 5.65, duration: 0.35 },
+              { midi: 53, name: 'F3', time: 6.10, duration: 0.20 },
+              { midi: 55, name: 'G3', time: 6.35, duration: 0.25 },
+              { midi: 52, name: 'E3', time: 6.70, duration: 0.25 },
+              { midi: 48, name: 'C3', time: 7.05, duration: 0.20 },
+              { midi: 50, name: 'D3', time: 7.30, duration: 0.20 },
+              { midi: 47, name: 'B2', time: 7.55, duration: 0.35 }
+            ]
+          }
         ]
       },
       twinkle: {
         title: "きらきら星 (Twinkle Twinkle Little Star)",
         bpm: 110,
-        notes: [
-          { midi: 60, name: 'C4', time: 0.0, duration: 0.45 },
-          { midi: 60, name: 'C4', time: 0.55, duration: 0.45 },
-          { midi: 67, name: 'G4', time: 1.1, duration: 0.45 },
-          { midi: 67, name: 'G4', time: 1.65, duration: 0.45 },
-          { midi: 69, name: 'A4', time: 2.2, duration: 0.45 },
-          { midi: 69, name: 'A4', time: 2.75, duration: 0.45 },
-          { midi: 67, name: 'G4', time: 3.3, duration: 0.95 },
-          { midi: 65, name: 'F4', time: 4.4, duration: 0.45 },
-          { midi: 65, name: 'F4', time: 4.95, duration: 0.45 },
-          { midi: 64, name: 'E4', time: 5.5, duration: 0.45 },
-          { midi: 64, name: 'E4', time: 6.05, duration: 0.45 },
-          { midi: 62, name: 'D4', time: 6.6, duration: 0.45 },
-          { midi: 62, name: 'D4', time: 7.15, duration: 0.45 },
-          { midi: 60, name: 'C4', time: 7.7, duration: 0.95 }
+        tracks: [
+          {
+            name: "Melody (主旋律)",
+            category: "melody",
+            notes: [
+              { midi: 60, name: 'C4', time: 0.0, duration: 0.45 },
+              { midi: 60, name: 'C4', time: 0.55, duration: 0.45 },
+              { midi: 67, name: 'G4', time: 1.1, duration: 0.45 },
+              { midi: 67, name: 'G4', time: 1.65, duration: 0.45 },
+              { midi: 69, name: 'A4', time: 2.2, duration: 0.45 },
+              { midi: 69, name: 'A4', time: 2.75, duration: 0.45 },
+              { midi: 67, name: 'G4', time: 3.3, duration: 0.95 },
+              { midi: 65, name: 'F4', time: 4.4, duration: 0.45 },
+              { midi: 65, name: 'F4', time: 4.95, duration: 0.45 },
+              { midi: 64, name: 'E4', time: 5.5, duration: 0.45 },
+              { midi: 64, name: 'E4', time: 6.05, duration: 0.45 },
+              { midi: 62, name: 'D4', time: 6.6, duration: 0.45 },
+              { midi: 62, name: 'D4', time: 7.15, duration: 0.45 },
+              { midi: 60, name: 'C4', time: 7.7, duration: 0.95 }
+            ]
+          },
+          {
+            name: "Accompaniment (伴奏和音アルペジオ)",
+            category: "harmony",
+            notes: [
+              { midi: 48, name: 'C3', time: 0.0, duration: 0.25 }, { midi: 52, name: 'E3', time: 0.25, duration: 0.25 },
+              { midi: 55, name: 'G3', time: 0.5, duration: 0.25 }, { midi: 52, name: 'E3', time: 0.75, duration: 0.25 },
+              { midi: 48, name: 'C3', time: 1.1, duration: 0.25 }, { midi: 52, name: 'E3', time: 1.35, duration: 0.25 },
+              { midi: 55, name: 'G3', time: 1.6, duration: 0.25 }, { midi: 52, name: 'E3', time: 1.85, duration: 0.25 },
+              { midi: 48, name: 'C3', time: 2.2, duration: 0.25 }, { midi: 53, name: 'F3', time: 2.45, duration: 0.25 },
+              { midi: 57, name: 'A3', time: 2.7, duration: 0.25 }, { midi: 53, name: 'F3', time: 2.95, duration: 0.25 },
+              { midi: 48, name: 'C3', time: 3.3, duration: 0.25 }, { midi: 52, name: 'E3', time: 3.55, duration: 0.25 },
+              { midi: 55, name: 'G3', time: 3.8, duration: 0.25 }, { midi: 52, name: 'E3', time: 4.05, duration: 0.25 }
+            ]
+          },
+          {
+            name: "Bass (低音ベース)",
+            category: "bass",
+            notes: [
+              { midi: 36, name: 'C2', time: 0.0, duration: 1.0 },
+              { midi: 36, name: 'C2', time: 1.1, duration: 1.0 },
+              { midi: 41, name: 'F2', time: 2.2, duration: 1.0 },
+              { midi: 36, name: 'C2', time: 3.3, duration: 1.0 },
+              { midi: 41, name: 'F2', time: 4.4, duration: 1.0 },
+              { midi: 36, name: 'C2', time: 5.5, duration: 1.0 },
+              { midi: 43, name: 'G2', time: 6.6, duration: 1.0 },
+              { midi: 36, name: 'C2', time: 7.7, duration: 1.0 }
+            ]
+          }
         ]
       },
       ode_to_joy: {
         title: "ベートーヴェン - 歓喜の歌 (Ode to Joy)",
         bpm: 125,
-        notes: [
-          { midi: 64, name: 'E4', time: 0.0, duration: 0.42 },
-          { midi: 64, name: 'E4', time: 0.48, duration: 0.42 },
-          { midi: 65, name: 'F4', time: 0.96, duration: 0.42 },
-          { midi: 67, name: 'G4', time: 1.44, duration: 0.42 },
-          { midi: 67, name: 'G4', time: 1.92, duration: 0.42 },
-          { midi: 65, name: 'F4', time: 2.40, duration: 0.42 },
-          { midi: 64, name: 'E4', time: 2.88, duration: 0.42 },
-          { midi: 62, name: 'D4', time: 3.36, duration: 0.42 },
-          { midi: 60, name: 'C4', time: 3.84, duration: 0.42 },
-          { midi: 60, name: 'C4', time: 4.32, duration: 0.42 },
-          { midi: 62, name: 'D4', time: 4.80, duration: 0.42 },
-          { midi: 64, name: 'E4', time: 5.28, duration: 0.42 },
-          { midi: 64, name: 'E4', time: 5.76, duration: 0.65 },
-          { midi: 62, name: 'D4', time: 6.48, duration: 0.22 },
-          { midi: 62, name: 'D4', time: 6.72, duration: 0.85 }
+        tracks: [
+          {
+            name: "Melody (主旋律)",
+            category: "melody",
+            notes: [
+              { midi: 64, name: 'E4', time: 0.0, duration: 0.42 },
+              { midi: 64, name: 'E4', time: 0.48, duration: 0.42 },
+              { midi: 65, name: 'F4', time: 0.96, duration: 0.42 },
+              { midi: 67, name: 'G4', time: 1.44, duration: 0.42 },
+              { midi: 67, name: 'G4', time: 1.92, duration: 0.42 },
+              { midi: 65, name: 'F4', time: 2.40, duration: 0.42 },
+              { midi: 64, name: 'E4', time: 2.88, duration: 0.42 },
+              { midi: 62, name: 'D4', time: 3.36, duration: 0.42 },
+              { midi: 60, name: 'C4', time: 3.84, duration: 0.42 },
+              { midi: 60, name: 'C4', time: 4.32, duration: 0.42 },
+              { midi: 62, name: 'D4', time: 4.80, duration: 0.42 },
+              { midi: 64, name: 'E4', time: 5.28, duration: 0.42 },
+              { midi: 64, name: 'E4', time: 5.76, duration: 0.65 },
+              { midi: 62, name: 'D4', time: 6.48, duration: 0.22 },
+              { midi: 62, name: 'D4', time: 6.72, duration: 0.85 }
+            ]
+          },
+          {
+            name: "Bass & Harmony (伴奏)",
+            category: "bass",
+            notes: [
+              { midi: 48, name: 'C3', time: 0.0, duration: 0.96 },
+              { midi: 48, name: 'C3', time: 0.96, duration: 0.96 },
+              { midi: 48, name: 'C3', time: 1.92, duration: 0.96 },
+              { midi: 43, name: 'G2', time: 2.88, duration: 0.96 },
+              { midi: 48, name: 'C3', time: 3.84, duration: 0.96 },
+              { midi: 43, name: 'G2', time: 4.80, duration: 0.96 },
+              { midi: 48, name: 'C3', time: 5.76, duration: 0.96 },
+              { midi: 43, name: 'G2', time: 6.72, duration: 0.85 }
+            ]
+          }
         ]
       },
       fur_elise: {
         title: "ベートーヴェン - エリーゼのために (Für Elise)",
         bpm: 130,
-        notes: [
-          { midi: 76, name: 'E5', time: 0.0, duration: 0.22 },
-          { midi: 75, name: 'D#5', time: 0.24, duration: 0.22 },
-          { midi: 76, name: 'E5', time: 0.48, duration: 0.22 },
-          { midi: 75, name: 'D#5', time: 0.72, duration: 0.22 },
-          { midi: 76, name: 'E5', time: 0.96, duration: 0.22 },
-          { midi: 71, name: 'B4', time: 1.20, duration: 0.22 },
-          { midi: 74, name: 'D5', time: 1.44, duration: 0.22 },
-          { midi: 72, name: 'C5', time: 1.68, duration: 0.22 },
-          { midi: 69, name: 'A4', time: 1.92, duration: 0.60 },
-          { midi: 60, name: 'C4', time: 2.64, duration: 0.22 },
-          { midi: 64, name: 'E4', time: 2.88, duration: 0.22 },
-          { midi: 69, name: 'A4', time: 3.12, duration: 0.22 },
-          { midi: 71, name: 'B4', time: 3.36, duration: 0.60 }
+        tracks: [
+          {
+            name: "Melody (主旋律)",
+            category: "melody",
+            notes: [
+              { midi: 76, name: 'E5', time: 0.0, duration: 0.22 },
+              { midi: 75, name: 'D#5', time: 0.24, duration: 0.22 },
+              { midi: 76, name: 'E5', time: 0.48, duration: 0.22 },
+              { midi: 75, name: 'D#5', time: 0.72, duration: 0.22 },
+              { midi: 76, name: 'E5', time: 0.96, duration: 0.22 },
+              { midi: 71, name: 'B4', time: 1.20, duration: 0.22 },
+              { midi: 74, name: 'D5', time: 1.44, duration: 0.22 },
+              { midi: 72, name: 'C5', time: 1.68, duration: 0.22 },
+              { midi: 69, name: 'A4', time: 1.92, duration: 0.60 },
+              { midi: 60, name: 'C4', time: 2.64, duration: 0.22 },
+              { midi: 64, name: 'E4', time: 2.88, duration: 0.22 },
+              { midi: 69, name: 'A4', time: 3.12, duration: 0.22 },
+              { midi: 71, name: 'B4', time: 3.36, duration: 0.60 }
+            ]
+          },
+          {
+            name: "Arpeggio Bass (伴奏アルペジオ)",
+            category: "harmony",
+            notes: [
+              { midi: 45, name: 'A2', time: 1.92, duration: 0.2 },
+              { midi: 52, name: 'E3', time: 2.16, duration: 0.2 },
+              { midi: 57, name: 'A3', time: 2.40, duration: 0.2 },
+              { midi: 40, name: 'E2', time: 3.36, duration: 0.2 },
+              { midi: 52, name: 'E3', time: 3.60, duration: 0.2 },
+              { midi: 56, name: 'G#3', time: 3.84, duration: 0.2 }
+            ]
+          }
         ]
       },
       canon: {
         title: "パッヘルベル - カノン (Canon in D)",
         bpm: 90,
-        notes: [
-          { midi: 74, name: 'D5', time: 0.0, duration: 0.6 },
-          { midi: 73, name: 'C#5', time: 0.66, duration: 0.6 },
-          { midi: 71, name: 'B4', time: 1.33, duration: 0.6 },
-          { midi: 69, name: 'A4', time: 2.00, duration: 0.6 },
-          { midi: 67, name: 'G4', time: 2.66, duration: 0.6 },
-          { midi: 66, name: 'F#4', time: 3.33, duration: 0.6 },
-          { midi: 67, name: 'G4', time: 4.00, duration: 0.6 },
-          { midi: 69, name: 'A4', time: 4.66, duration: 0.6 }
+        tracks: [
+          {
+            name: "Melody (主旋律)",
+            category: "melody",
+            notes: [
+              { midi: 74, name: 'D5', time: 0.0, duration: 0.6 },
+              { midi: 73, name: 'C#5', time: 0.66, duration: 0.6 },
+              { midi: 71, name: 'B4', time: 1.33, duration: 0.6 },
+              { midi: 69, name: 'A4', time: 2.00, duration: 0.6 },
+              { midi: 67, name: 'G4', time: 2.66, duration: 0.6 },
+              { midi: 66, name: 'F#4', time: 3.33, duration: 0.6 },
+              { midi: 67, name: 'G4', time: 4.00, duration: 0.6 },
+              { midi: 69, name: 'A4', time: 4.66, duration: 0.6 }
+            ]
+          },
+          {
+            name: "Ground Bass (通奏低音ベース)",
+            category: "bass",
+            notes: [
+              { midi: 50, name: 'D3', time: 0.0, duration: 0.66 },
+              { midi: 45, name: 'A2', time: 0.66, duration: 0.66 },
+              { midi: 47, name: 'B2', time: 1.33, duration: 0.66 },
+              { midi: 42, name: 'F#2', time: 2.00, duration: 0.66 },
+              { midi: 43, name: 'G2', time: 2.66, duration: 0.66 },
+              { midi: 38, name: 'D2', time: 3.33, duration: 0.66 },
+              { midi: 43, name: 'G2', time: 4.00, duration: 0.66 },
+              { midi: 45, name: 'A2', time: 4.66, duration: 0.66 }
+            ]
+          }
         ]
       }
     };
@@ -887,13 +1191,13 @@
         const duration = Math.max(0.01, Number(n.duration) || 0.1);
         const rawMidi = Number(n.midi) || 60;
         const velocity = Number(n.velocity) || 0.8;
-        const transposedMidi = Math.min(108, Math.max(21, rawMidi + transpose));
+        const isDrum = Boolean(n.isDrum);
+        const transposedMidi = isDrum ? rawMidi : Math.min(108, Math.max(21, rawMidi + transpose));
         return {
-          time: time,
-          duration: duration,
+          time, duration,
           midi: transposedMidi,
-          name: midiToName(transposedMidi),
-          velocity: velocity
+          name: isDrum ? `Drum ${rawMidi}` : midiToName(transposedMidi),
+          velocity, isDrum
         };
       }).filter(n => !isNaN(n.time) && !isNaN(n.duration) && !isNaN(n.midi));
 
@@ -932,7 +1236,8 @@
             duration: dt,
             midi: chosen.midi,
             name: chosen.name,
-            velocity: chosen.velocity || 0.8
+            velocity: chosen.velocity || 0.8,
+            isDrum: chosen.isDrum
           });
         }
       }
@@ -961,12 +1266,14 @@
           midi: n.midi,
           name: n.name,
           freq: Math.round(freq * 10) / 10,
-          freqRounded: Math.round(freq)
+          freqRounded: Math.round(freq),
+          velocity: n.velocity,
+          isDrum: n.isDrum
         };
       });
     }
 
-    // Split polyphonic track into ranked voices (Voice 0: Top, Voice 1: Mid, Voice 2: Bot...)
+    // Split single-track chords into voices (Top, Middle, Bottom)
     function extractVoiceFromNotes(rawNotes, voiceRank = 0, totalVoices = 3, gateRatio = 0.85, transpose = 0) {
       if (!rawNotes || rawNotes.length === 0) return [];
 
@@ -975,12 +1282,13 @@
         const duration = Math.max(0.01, Number(n.duration) || 0.1);
         const rawMidi = Number(n.midi) || 60;
         const velocity = Number(n.velocity) || 0.8;
-        const transposedMidi = Math.min(108, Math.max(21, rawMidi + transpose));
+        const isDrum = Boolean(n.isDrum);
+        const transposedMidi = isDrum ? rawMidi : Math.min(108, Math.max(21, rawMidi + transpose));
         return {
           time, duration,
           midi: transposedMidi,
-          name: midiToName(transposedMidi),
-          velocity
+          name: isDrum ? `Drum ${rawMidi}` : midiToName(transposedMidi),
+          velocity, isDrum
         };
       }).filter(n => !isNaN(n.time) && !isNaN(n.duration) && !isNaN(n.midi));
 
@@ -1002,15 +1310,12 @@
         const active = notes.filter(n => n.time <= midT && (n.time + n.duration) >= midT);
         if (active.length === 0) continue;
 
-        // Sort by pitch descending
         active.sort((a, b) => b.midi - a.midi);
 
-        // Pick the voice for this rank
         let targetNote = null;
         if (voiceRank < active.length) {
           targetNote = active[voiceRank];
         } else if (voiceRank === totalVoices - 1 && active.length > 0) {
-          // Bottom voice gets lowest note
           targetNote = active[active.length - 1];
         }
 
@@ -1020,12 +1325,12 @@
             duration: dt,
             midi: targetNote.midi,
             name: targetNote.name,
-            velocity: targetNote.velocity
+            velocity: targetNote.velocity,
+            isDrum: targetNote.isDrum
           });
         }
       }
 
-      // Merge
       const merged = [];
       for (let i = 0; i < slices.length; i++) {
         const cur = slices[i];
@@ -1050,7 +1355,9 @@
           midi: n.midi,
           name: n.name,
           freq: Math.round(freq * 10) / 10,
-          freqRounded: Math.round(freq)
+          freqRounded: Math.round(freq),
+          velocity: n.velocity,
+          isDrum: n.isDrum
         };
       });
     }
@@ -1060,21 +1367,20 @@
     // ==========================================
     class App {
       constructor() {
-        this.synth = new LocalSynth();
+        this.synth = new MultiTimbralPcSynth();
         this.rootDevices = []; // Array of RootRobotDevice
 
-        // PC Audio Device State
+        // PC Multi-Track Audio Device
         this.pcDevice = {
-          name: 'PC Synth',
+          name: 'PC Multi-Synth',
           theme: PC_THEME,
           isEnabled: true,
-          assignedPart: 'auto', // 'auto', 'track_X', 'voice_X', 'all'
-          autoResolvedRole: '',
-          volume: 0.7,
+          mode: 'auto', // 'auto', 'all', 'custom'
+          selectedTrackIndices: new Set(),
+          trackPipelines: [], // Array of { trackIndex, name, category, sequence, nextIndex }
+          volume: 0.75,
           isMuted: false,
-          sequence: [],
-          nextIndex: 0,
-          currentNote: null
+          activeNotesCount: 0
         };
 
         this.rawMidi = null;
@@ -1099,7 +1405,7 @@
         this.checkBleSupport();
         this.bindEvents();
         this.initCanvas();
-        this.loadPreset('mario');
+        this.loadPreset('twinkle');
         this.renderDeviceCards();
         lucide.createIcons();
       }
@@ -1142,13 +1448,14 @@
           this.recalculateEnsembleSequences();
         });
 
-        document.getElementById('pcPartSelect').addEventListener('change', (e) => {
-          this.pcDevice.assignedPart = e.target.value;
-          this.recalculateEnsembleSequences();
+        document.getElementById('pcModeSelect').addEventListener('change', (e) => {
+          this.pcDevice.mode = e.target.value;
+          this.autoOptimizeEnsemble();
         });
 
         document.getElementById('pcVolumeSlider').addEventListener('input', (e) => {
           this.pcDevice.volume = parseFloat(e.target.value);
+          this.synth.setVolume(this.pcDevice.volume);
         });
 
         document.getElementById('btnPcMute').addEventListener('click', () => {
@@ -1242,10 +1549,14 @@
         // Skip to First Note Button
         document.getElementById('btnJumpFirstNote').addEventListener('click', () => {
           let earliest = Infinity;
-          const allDevs = [...this.rootDevices, this.pcDevice];
-          allDevs.forEach(d => {
+          this.rootDevices.forEach(d => {
             if (d.sequence && d.sequence.length > 0 && d.sequence[0].time < earliest) {
               earliest = d.sequence[0].time;
+            }
+          });
+          this.pcDevice.trackPipelines.forEach(p => {
+            if (p.sequence && p.sequence.length > 0 && p.sequence[0].time < earliest) {
+              earliest = p.sequence[0].time;
             }
           });
           if (earliest < Infinity) this.seekTo(earliest);
@@ -1326,7 +1637,6 @@
           });
         }
 
-        // Check if already paired
         const alreadyConnected = this.rootDevices.some(d => d.device.id === bleDevice.id);
         if (alreadyConnected) {
           alert('このRootロボットは既に接続されています。');
@@ -1368,12 +1678,9 @@
 
       // Render Dynamic Root Cards
       renderDeviceCards() {
-        const list = document.getElementById('deviceCardsList');
+        const subgrid = document.getElementById('rootCardsSubgrid');
         const noRootMsg = document.getElementById('noRootMessage');
-
-        // Remove old robot cards (keep pcAudioCard)
-        const oldRobotCards = list.querySelectorAll('.robot-device-card');
-        oldRobotCards.forEach(c => c.remove());
+        subgrid.innerHTML = '';
 
         if (this.rootDevices.length === 0) {
           noRootMsg.classList.remove('hidden');
@@ -1388,13 +1695,13 @@
 
           card.innerHTML = `
             <div class="flex items-start justify-between gap-2">
-              <div class="flex items-center gap-2.5">
+              <div class="flex items-center gap-2">
                 <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0" style="background-color: ${dev.theme.hex}25; color: ${dev.theme.hex}; border: 1px solid ${dev.theme.hex}40;">
                   #${idx + 1}
                 </div>
                 <div>
                   <div class="flex items-center gap-1.5">
-                    <span class="text-xs font-bold text-white truncate max-w-[110px]" title="${dev.name}">${dev.name}</span>
+                    <span class="text-xs font-bold text-white truncate max-w-[100px]" title="${dev.name}">${dev.name}</span>
                     <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                   </div>
                   <div class="active-note-label text-[11px] font-mono text-slate-400">待機中</div>
@@ -1418,11 +1725,10 @@
             <!-- Part Selector -->
             <div class="space-y-1 text-xs">
               <div class="flex items-center justify-between text-[11px] text-slate-400">
-                <span>担当パート:</span>
+                <span>担当パート (主旋律優先):</span>
                 <span class="auto-role-badge text-[10px] font-semibold" style="color: ${dev.theme.hex};">${dev.autoResolvedRole || '自動'}</span>
               </div>
-              <select class="dev-part-select w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:outline-none" style="focus:border-color: ${dev.theme.hex};">
-                <!-- Populated dynamically -->
+              <select class="dev-part-select w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:outline-none">
               </select>
             </div>
 
@@ -1435,7 +1741,6 @@
             </div>
           `;
 
-          // Event listeners
           card.querySelector('.btn-dev-beep').addEventListener('click', () => {
             dev.playNote(440, 200);
           });
@@ -1463,17 +1768,16 @@
             this.recalculateEnsembleSequences();
           });
 
-          list.appendChild(card);
+          subgrid.appendChild(card);
         });
 
-        this.updatePartSelectDropdowns();
+        this.updateRootPartDropdowns();
         lucide.createIcons();
       }
 
-      // Populate options in Part selectors for each device
-      updatePartSelectDropdowns() {
+      updateRootPartDropdowns() {
         const createOptions = (currentVal) => {
-          let html = `<option value="auto" ${currentVal === 'auto' ? 'selected' : ''}>⚡ 自動最適割り当て (Auto)</option>`;
+          let html = `<option value="auto" ${currentVal === 'auto' ? 'selected' : ''}>⚡ 自動 (主旋律メロディ系を最優先)</option>`;
           html += `<option value="all" ${currentVal === 'all' ? 'selected' : ''}>全トラック統合 (All Merged)</option>`;
           
           if (this.parsedTracks && this.parsedTracks.length > 1) {
@@ -1493,11 +1797,6 @@
           return html;
         };
 
-        // PC dropdown
-        const pcSelect = document.getElementById('pcPartSelect');
-        pcSelect.innerHTML = createOptions(this.pcDevice.assignedPart);
-
-        // Root dropdowns
         const rootCards = document.querySelectorAll('.robot-device-card');
         rootCards.forEach((card, idx) => {
           const dev = this.rootDevices[idx];
@@ -1508,123 +1807,221 @@
         });
       }
 
-      // Intelligent Track & Role Analyzer
-      analyzeTrackRoles() {
-        if (!this.parsedTracks || this.parsedTracks.length === 0) return [];
-
-        return this.parsedTracks.map(t => {
-          const notes = t.notes;
-          let sumPitch = 0, minPitch = 127, maxPitch = 0;
-          notes.forEach(n => {
-            sumPitch += n.midi;
-            if (n.midi < minPitch) minPitch = n.midi;
-            if (n.midi > maxPitch) maxPitch = n.midi;
-          });
-          const avgPitch = sumPitch / notes.length;
-
-          let role = 'harmony';
-          let roleLabel = '和音・伴奏';
-
-          if (avgPitch < 52) {
-            role = 'bass';
-            roleLabel = '低音・ベース';
-          } else if (avgPitch >= 75) {
-            role = 'treble';
-            roleLabel = '高音・装飾';
-          } else if (avgPitch >= 60 && notes.length > 30) {
-            role = 'melody';
-            roleLabel = '主旋律・メロディ';
-          }
-
+      // Comprehensive Track Categorization
+      classifyTrack(track, idx) {
+        const isDrums = track.channel === 9 || Boolean(track.isDrum) || (track.instrument && track.instrument.percussion);
+        if (isDrums) {
           return {
-            trackIndex: t.index,
-            name: t.name,
-            noteCount: notes.length,
-            avgPitch,
-            minPitch,
-            maxPitch,
-            role,
-            roleLabel
+            trackIndex: idx,
+            name: track.name || `Drums (Ch 10)`,
+            category: 'drums',
+            label: 'ドラム・パーカッション',
+            badgeColor: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+            isMelodyCandidate: false,
+            priority: 90
           };
+        }
+
+        const instNum = track.instrument ? (track.instrument.number || 0) : 0;
+        const notes = track.notes;
+        let sumPitch = 0, minPitch = 127, maxPitch = 0;
+        notes.forEach(n => {
+          sumPitch += n.midi;
+          if (n.midi < minPitch) minPitch = n.midi;
+          if (n.midi > maxPitch) maxPitch = n.midi;
         });
+        const avgPitch = sumPitch / (notes.length || 1);
+
+        // Bass (GM 32..39 or low pitch)
+        if ((instNum >= 32 && instNum <= 39) || avgPitch < 52) {
+          return {
+            trackIndex: idx,
+            name: track.name || `Bass (Tr ${idx + 1})`,
+            category: 'bass',
+            label: '低音ベース',
+            badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+            isMelodyCandidate: false,
+            priority: 60
+          };
+        }
+
+        // Guitar (GM 24..31)
+        if (instNum >= 24 && instNum <= 31) {
+          return {
+            trackIndex: idx,
+            name: track.name || `Guitar (Tr ${idx + 1})`,
+            category: 'guitar',
+            label: 'エレキ/アコギ・コード',
+            badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+            isMelodyCandidate: avgPitch >= 64,
+            priority: 40
+          };
+        }
+
+        // Synth Pad / Strings / Organ (GM 48..55, 88..103, 16..23)
+        if ((instNum >= 48 && instNum <= 55) || (instNum >= 88 && instNum <= 103) || (instNum >= 16 && instNum <= 23)) {
+          return {
+            trackIndex: idx,
+            name: track.name || `Synth/Pad (Tr ${idx + 1})`,
+            category: 'synth_pad',
+            label: 'シンセサイザー・和音パッド',
+            badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+            isMelodyCandidate: false,
+            priority: 45
+          };
+        }
+
+        // Melody / Lead / Solo (Pitch >= 60, high density)
+        if (avgPitch >= 60 && notes.length > 20) {
+          const melodyScore = avgPitch * 1.5 + Math.min(100, notes.length);
+          return {
+            trackIndex: idx,
+            name: track.name || `Melody (Tr ${idx + 1})`,
+            category: 'melody',
+            label: '主旋律・リードメロディ',
+            badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+            isMelodyCandidate: true,
+            melodyScore,
+            priority: 10
+          };
+        }
+
+        return {
+          trackIndex: idx,
+          name: track.name || `Accompaniment (Tr ${idx + 1})`,
+          category: 'harmony',
+          label: '和音・伴奏アルペジオ',
+          badgeColor: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
+          isMelodyCandidate: false,
+          priority: 30
+        };
       }
 
-      // Auto-Optimize Ensemble (Assigns distinct parts to Roots and PC)
+      // Auto-Optimize Ensemble Allocation
       autoOptimizeEnsemble() {
-        const analyzed = this.analyzeTrackRoles();
+        if (!this.parsedTracks || this.parsedTracks.length === 0) return;
+
+        const classified = this.parsedTracks.map((t, idx) => this.classifyTrack(t, idx));
         const activeRoots = this.rootDevices.filter(d => d.isConnected);
-        const pcActive = this.pcDevice.isEnabled;
 
-        // Reset auto roles
-        activeRoots.forEach(d => d.autoResolvedRole = '');
-        this.pcDevice.autoResolvedRole = '';
+        // Reset Root auto roles
+        activeRoots.forEach(d => {
+          d.autoResolvedRole = '';
+          d.autoResolvedTrackIndex = null;
+          d.autoResolvedVoice = null;
+        });
 
-        if (analyzed.length > 1) {
-          // Multi-track MIDI: Sort tracks by priority: Melody -> Harmony -> Bass -> Treble
-          const sorted = [...analyzed].sort((a, b) => {
-            const priority = { melody: 1, harmony: 2, bass: 3, treble: 4 };
-            return (priority[a.role] || 99) - (priority[b.role] || 99);
-          });
+        // 1. Separate Melody Candidates vs Accompaniment Tracks
+        const melodyCandidates = classified.filter(c => c.isMelodyCandidate).sort((a, b) => (b.melodyScore || 0) - (a.melodyScore || 0));
+        const otherTracks = classified.filter(c => !c.isMelodyCandidate).sort((a, b) => a.priority - b.priority);
 
-          let trackPtr = 0;
-          const assignedTrackIndices = new Set();
+        const assignedToRoots = new Set();
 
-          // 1. Assign Roots
+        // 2. Assign Root Robots (Prioritize Melody)
+        if (classified.length > 1) {
+          let melPtr = 0;
           activeRoots.forEach((root, idx) => {
             if (root.assignedPart === 'auto') {
-              if (trackPtr < sorted.length) {
-                const target = sorted[trackPtr++];
+              if (melPtr < melodyCandidates.length) {
+                const target = melodyCandidates[melPtr++];
                 root.autoResolvedTrackIndex = target.trackIndex;
-                root.autoResolvedRole = `[Tr ${target.trackIndex + 1}] ${target.roleLabel}`;
-                assignedTrackIndices.add(target.trackIndex);
-              } else {
-                // Wrap around
-                const target = sorted[idx % sorted.length];
+                root.autoResolvedRole = `[Tr ${target.trackIndex + 1}] ${target.label}`;
+                assignedToRoots.add(target.trackIndex);
+              } else if (idx < classified.length) {
+                // If more roots than melody candidates, assign other tracks
+                const target = otherTracks[idx - melodyCandidates.length] || classified[idx % classified.length];
                 root.autoResolvedTrackIndex = target.trackIndex;
-                root.autoResolvedRole = `[Tr ${target.trackIndex + 1}] ${target.roleLabel}`;
+                root.autoResolvedRole = `[Tr ${target.trackIndex + 1}] ${target.label}`;
+                assignedToRoots.add(target.trackIndex);
               }
+            } else if (root.assignedPart.startsWith('track_')) {
+              const trIdx = parseInt(root.assignedPart.replace('track_', ''), 10);
+              assignedToRoots.add(trIdx);
             }
           });
-
-          // 2. Assign PC (Give PC a distinct, unassigned track like accompaniment or bass!)
-          if (this.pcDevice.assignedPart === 'auto') {
-            const remaining = sorted.find(t => !assignedTrackIndices.has(t.trackIndex));
-            if (remaining) {
-              this.pcDevice.autoResolvedTrackIndex = remaining.trackIndex;
-              this.pcDevice.autoResolvedRole = `[Tr ${remaining.trackIndex + 1}] ${remaining.roleLabel}`;
-            } else {
-              // If all assigned, assign harmony/bass or first non-melody track
-              const nonMelody = sorted.find(t => t.role !== 'melody') || sorted[0];
-              this.pcDevice.autoResolvedTrackIndex = nonMelody.trackIndex;
-              this.pcDevice.autoResolvedRole = `[Tr ${nonMelody.trackIndex + 1}] ${nonMelody.roleLabel} (伴奏)`;
-            }
-          }
         } else {
-          // Single-track / Chord MIDI: Split voices
+          // Single-track: Voice splitting
           activeRoots.forEach((root, idx) => {
             if (root.assignedPart === 'auto') {
               root.autoResolvedVoice = idx;
-              root.autoResolvedRole = `Voice ${idx + 1} (${idx === 0 ? '最高音' : idx === 1 ? '中音' : '低音'})`;
+              root.autoResolvedRole = `Voice ${idx + 1} (${idx === 0 ? '最高音メロディ' : idx === 1 ? '中音和音' : '低音'})`;
             }
           });
+        }
 
-          if (this.pcDevice.assignedPart === 'auto') {
-            if (activeRoots.length === 0) {
-              this.pcDevice.autoResolvedVoice = 0;
-              this.pcDevice.autoResolvedRole = '全ノート (Full)';
-            } else {
-              // PC plays bottom voice or full chords
-              this.pcDevice.autoResolvedVoice = activeRoots.length;
-              this.pcDevice.autoResolvedRole = `Voice ${activeRoots.length + 1} (低音・和音補強)`;
+        // 3. Assign PC Side (Assign multiple accompaniment tracks: drums, bass, synth, guitar...)
+        this.pcDevice.selectedTrackIndices.clear();
+
+        if (this.pcDevice.mode === 'all') {
+          this.parsedTracks.forEach(t => this.pcDevice.selectedTrackIndices.add(t.index));
+        } else if (this.pcDevice.mode === 'auto') {
+          if (classified.length > 1) {
+            // Auto Mode: Assign ALL accompaniment tracks (especially drums, bass, synth, guitar) not assigned to Root #1
+            classified.forEach(c => {
+              if (!assignedToRoots.has(c.trackIndex)) {
+                this.pcDevice.selectedTrackIndices.add(c.trackIndex);
+              }
+            });
+            // If all tracks were assigned to roots, include all accompaniment anyway
+            if (this.pcDevice.selectedTrackIndices.size === 0) {
+              otherTracks.forEach(c => this.pcDevice.selectedTrackIndices.add(c.trackIndex));
+              if (this.pcDevice.selectedTrackIndices.size === 0) {
+                this.parsedTracks.forEach(t => this.pcDevice.selectedTrackIndices.add(t.index));
+              }
             }
+          } else {
+            // Single-track: PC plays full accompaniment or lower voices
+            this.pcDevice.selectedTrackIndices.add(0);
           }
         }
 
         this.recalculateEnsembleSequences();
+        this.renderPcTrackCheckboxes(classified);
         this.updateEnsembleSummaryUI();
       }
 
-      // Build note sequences for each device
+      // Render PC track checkboxes
+      renderPcTrackCheckboxes(classifiedTracks) {
+        const container = document.getElementById('pcTrackCheckboxList');
+        container.innerHTML = '';
+
+        if (!classifiedTracks || classifiedTracks.length === 0) {
+          container.innerHTML = '<span class="text-[11px] text-slate-500 italic">トラックがありません</span>';
+          return;
+        }
+
+        classifiedTracks.forEach(info => {
+          const isChecked = this.pcDevice.selectedTrackIndices.has(info.trackIndex);
+          const label = document.createElement('label');
+          label.className = `flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] cursor-pointer transition select-none ${isChecked ? info.badgeColor : 'bg-slate-800 text-slate-400 border-slate-700/60 opacity-60'}`;
+          
+          label.innerHTML = `
+            <input type="checkbox" data-track-index="${info.trackIndex}" ${isChecked ? 'checked' : ''} class="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-sky-500 focus:ring-0">
+            <span class="font-medium truncate max-w-[170px]">[Tr ${info.trackIndex + 1}] ${info.name}</span>
+          `;
+
+          const cb = label.querySelector('input');
+          cb.addEventListener('change', (e) => {
+            const trIdx = parseInt(e.target.getAttribute('data-track-index'), 10);
+            if (e.target.checked) {
+              this.pcDevice.selectedTrackIndices.add(trIdx);
+            } else {
+              this.pcDevice.selectedTrackIndices.delete(trIdx);
+            }
+            this.pcDevice.mode = 'custom';
+            document.getElementById('pcModeSelect').value = 'custom';
+            this.recalculateEnsembleSequences();
+            this.renderPcTrackCheckboxes(classifiedTracks);
+            this.updateEnsembleSummaryUI();
+          });
+
+          container.appendChild(label);
+        });
+
+        document.getElementById('pcPartCountBadge').textContent = `${this.pcDevice.selectedTrackIndices.size} パート担当`;
+      }
+
+      // Build sequence pipelines for each device
       recalculateEnsembleSequences() {
         if (!this.parsedTracks || this.parsedTracks.length === 0) return;
 
@@ -1633,44 +2030,86 @@
           allNotesMerged = allNotesMerged.concat(t.notes);
         });
 
-        // Function to extract sequence for a given device assignment
-        const getSequenceForAssignment = (assignedPart, autoTrackIdx, autoVoiceIdx) => {
-          if (assignedPart === 'all') {
-            return monophonizeNotes(allNotesMerged, 'highest', this.gateRatio, this.transpose);
-          } else if (assignedPart.startsWith('track_')) {
-            const trIdx = parseInt(assignedPart.replace('track_', ''), 10);
+        // 1. Calculate Root robot sequences (Monophonic for piezo buzzer)
+        this.rootDevices.forEach(root => {
+          if (root.assignedPart === 'all') {
+            root.sequence = monophonizeNotes(allNotesMerged, 'highest', this.gateRatio, this.transpose);
+          } else if (root.assignedPart.startsWith('track_')) {
+            const trIdx = parseInt(root.assignedPart.replace('track_', ''), 10);
             const tr = this.parsedTracks.find(t => t.index === trIdx);
-            return tr ? monophonizeNotes(tr.notes, 'highest', this.gateRatio, this.transpose) : [];
-          } else if (assignedPart.startsWith('voice_')) {
-            const vRank = parseInt(assignedPart.replace('voice_', ''), 10);
-            return extractVoiceFromNotes(allNotesMerged, vRank, 3, this.gateRatio, this.transpose);
+            root.sequence = tr ? monophonizeNotes(tr.notes, 'highest', this.gateRatio, this.transpose) : [];
+          } else if (root.assignedPart.startsWith('voice_')) {
+            const vRank = parseInt(root.assignedPart.replace('voice_', ''), 10);
+            root.sequence = extractVoiceFromNotes(allNotesMerged, vRank, 3, this.gateRatio, this.transpose);
           } else {
             // Auto
-            if (this.parsedTracks.length > 1 && autoTrackIdx !== undefined) {
-              const tr = this.parsedTracks.find(t => t.index === autoTrackIdx);
-              return tr ? monophonizeNotes(tr.notes, 'highest', this.gateRatio, this.transpose) : [];
+            if (root.autoResolvedTrackIndex !== null && root.autoResolvedTrackIndex !== undefined) {
+              const tr = this.parsedTracks.find(t => t.index === root.autoResolvedTrackIndex);
+              root.sequence = tr ? monophonizeNotes(tr.notes, 'highest', this.gateRatio, this.transpose) : [];
             } else {
-              const vRank = autoVoiceIdx || 0;
-              return extractVoiceFromNotes(allNotesMerged, vRank, Math.max(3, this.rootDevices.length + 1), this.gateRatio, this.transpose);
+              const vRank = root.autoResolvedVoice || 0;
+              root.sequence = extractVoiceFromNotes(allNotesMerged, vRank, Math.max(3, this.rootDevices.length + 1), this.gateRatio, this.transpose);
             }
           }
-        };
-
-        // 1. Root sequences
-        this.rootDevices.forEach(root => {
-          root.sequence = getSequenceForAssignment(root.assignedPart, root.autoResolvedTrackIndex, root.autoResolvedVoice);
           root.nextIndex = 0;
         });
 
-        // 2. PC sequence
-        this.pcDevice.sequence = getSequenceForAssignment(this.pcDevice.assignedPart, this.pcDevice.autoResolvedTrackIndex, this.pcDevice.autoResolvedVoice);
-        this.pcDevice.nextIndex = 0;
+        // 2. Calculate PC Multi-Track Pipelines
+        this.pcDevice.trackPipelines = [];
+        if (this.parsedTracks.length > 1) {
+          this.pcDevice.selectedTrackIndices.forEach(trIdx => {
+            const tr = this.parsedTracks.find(t => t.index === trIdx);
+            if (tr && tr.notes.length > 0) {
+              const category = tr.category || this.classifyTrack(tr, trIdx).category;
+              // PC supports full polyphony or monophonic per track
+              const seq = tr.notes.map(n => ({
+                time: Number(n.time) >= 0 ? Number(n.time) : 0,
+                duration: Math.max(0.01, Number(n.duration) || 0.1),
+                midi: n.isDrum ? n.midi : Math.min(108, Math.max(21, n.midi + this.transpose)),
+                freq: midiToFreq(n.isDrum ? n.midi : n.midi + this.transpose),
+                velocity: Number(n.velocity) || 0.8,
+                name: n.name || midiToName(n.midi),
+                isDrum: Boolean(n.isDrum || tr.channel === 9)
+              })).filter(n => !isNaN(n.time) && !isNaN(n.duration) && !isNaN(n.midi));
 
-        // Calculate overall duration
+              this.pcDevice.trackPipelines.push({
+                trackIndex: trIdx,
+                name: tr.name,
+                category: category,
+                sequence: seq,
+                nextIndex: 0
+              });
+            }
+          });
+        } else {
+          // Single-track MIDI: PC plays full chords or bass
+          this.pcDevice.trackPipelines.push({
+            trackIndex: 0,
+            name: this.parsedTracks[0].name,
+            category: 'harmony',
+            sequence: this.parsedTracks[0].notes.map(n => ({
+              time: Number(n.time) || 0,
+              duration: Number(n.duration) || 0.1,
+              midi: Math.min(108, Math.max(21, n.midi + this.transpose)),
+              freq: midiToFreq(n.midi + this.transpose),
+              velocity: Number(n.velocity) || 0.8,
+              name: n.name || midiToName(n.midi)
+            })),
+            nextIndex: 0
+          });
+        }
+
+        // Calculate Overall Duration
         let maxDur = 0;
-        [...this.rootDevices, this.pcDevice].forEach(dev => {
+        this.rootDevices.forEach(dev => {
           if (dev.sequence && dev.sequence.length > 0) {
             const last = dev.sequence[dev.sequence.length - 1];
+            if (last.time + last.duration > maxDur) maxDur = last.time + last.duration;
+          }
+        });
+        this.pcDevice.trackPipelines.forEach(pipe => {
+          if (pipe.sequence && pipe.sequence.length > 0) {
+            const last = pipe.sequence[pipe.sequence.length - 1];
             if (last.time + last.duration > maxDur) maxDur = last.time + last.duration;
           }
         });
@@ -1679,17 +2118,18 @@
         document.getElementById('totalTimeDisplay').textContent = formatTime(this.totalDuration);
         document.getElementById('seekSlider').max = Math.max(1, this.totalDuration);
 
-        // Check if first note starts > 1.5s
-        let earliestNote = Infinity;
-        [...this.rootDevices, this.pcDevice].forEach(dev => {
-          if (dev.sequence && dev.sequence.length > 0 && dev.sequence[0].time < earliestNote) {
-            earliestNote = dev.sequence[0].time;
-          }
+        // Check if earliest note > 1.5s
+        let earliest = Infinity;
+        this.rootDevices.forEach(d => {
+          if (d.sequence && d.sequence.length > 0 && d.sequence[0].time < earliest) earliest = d.sequence[0].time;
+        });
+        this.pcDevice.trackPipelines.forEach(p => {
+          if (p.sequence && p.sequence.length > 0 && p.sequence[0].time < earliest) earliest = p.sequence[0].time;
         });
         const jumpBtn = document.getElementById('btnJumpFirstNote');
-        if (earliestNote > 1.5 && earliestNote < Infinity) {
+        if (earliest > 1.5 && earliest < Infinity) {
           jumpBtn.classList.remove('hidden');
-          jumpBtn.querySelector('span').textContent = `最初の音へジャンプ (${formatTime(earliestNote)})`;
+          jumpBtn.querySelector('span').textContent = `最初の音へジャンプ (${formatTime(earliest)})`;
         } else {
           jumpBtn.classList.add('hidden');
         }
@@ -1704,15 +2144,14 @@
         summaryList.innerHTML = '';
 
         const activeRoots = this.rootDevices.filter(d => d.isConnected);
-        roleText.textContent = `${activeRoots.length}台のRoot ＋ PC音源で合奏中`;
+        roleText.textContent = `Root: ${activeRoots.length}台 (主旋律系) ＋ PC: ${this.pcDevice.selectedTrackIndices.size}パート (リズム・伴奏系)`;
 
         // PC pill
         if (this.pcDevice.isEnabled) {
           const pcPill = document.createElement('span');
           pcPill.className = `px-2 py-0.5 rounded text-[11px] font-medium border ${PC_THEME.badgeClass}`;
-          pcPill.textContent = `💻 PC: ${this.pcDevice.autoResolvedRole || this.pcDevice.assignedPart}`;
+          pcPill.textContent = `💻 PC音源: ${this.pcDevice.selectedTrackIndices.size} パート同時演奏 (ドラム/ベース/シンセ)`;
           summaryList.appendChild(pcPill);
-          document.getElementById('pcAssignedRoleBadge').textContent = this.pcDevice.autoResolvedRole || '割り当て済';
         }
 
         // Root pills
@@ -1722,7 +2161,6 @@
           pill.textContent = `🤖 #${idx + 1} (${root.name}): ${root.autoResolvedRole || root.assignedPart}`;
           summaryList.appendChild(pill);
 
-          // Update card badge
           const card = document.querySelector(`.robot-device-card[data-device-id="${root.device.id}"]`);
           if (card) {
             const badge = card.querySelector('.auto-role-badge');
@@ -1742,27 +2180,30 @@
         if (!preset) return;
 
         this.rawMidi = null;
-        this.parsedTracks = [{
-          index: 0,
-          name: preset.title,
-          notes: preset.notes.map(n => ({
+        let trIdx = 0;
+        this.parsedTracks = preset.tracks.map(t => ({
+          index: trIdx++,
+          name: t.name,
+          category: t.category,
+          notes: t.notes.map(n => ({
             time: Number(n.time) || 0,
             duration: Number(n.duration) || 0.2,
             midi: Number(n.midi) || 60,
             name: n.name || midiToName(n.midi || 60),
             velocity: Number(n.velocity) || 0.8
           }))
-        }];
+        }));
 
         document.getElementById('songTitleDisplay').textContent = preset.title;
-        document.getElementById('songMetaDisplay').textContent = `プリセット楽曲 / テンポ: ${preset.bpm} BPM`;
-        const lastNote = preset.notes[preset.notes.length - 1];
-        document.getElementById('statDuration').textContent = formatTime(lastNote.time + lastNote.duration);
-        document.getElementById('statNotesCount').textContent = `${preset.notes.length} 音`;
-        document.getElementById('statTracksCount').textContent = '1';
+        document.getElementById('songMetaDisplay').textContent = `プリセット楽曲 (${this.parsedTracks.length} トラック) / テンポ: ${preset.bpm} BPM`;
+        
+        let totalNotes = 0;
+        this.parsedTracks.forEach(t => totalNotes += t.notes.length);
+        document.getElementById('statNotesCount').textContent = `${totalNotes} 音`;
+        document.getElementById('statTracksCount').textContent = `${this.parsedTracks.length}`;
         document.getElementById('statBpm').textContent = `${preset.bpm}`;
 
-        this.updatePartSelectDropdowns();
+        this.updateRootPartDropdowns();
         this.autoOptimizeEnsemble();
         this.log('INFO', `プリセット読み込み: ${preset.title}`);
       }
@@ -1799,17 +2240,19 @@
 
           midi.tracks.forEach((track, idx) => {
             if (track.notes && track.notes.length > 0) {
+              const isDrumTrack = track.channel === 9 || (track.instrument && track.instrument.percussion);
               const cleanNotes = track.notes.map(n => ({
                 time: Number(n.time) >= 0 ? Number(n.time) : 0,
                 duration: Math.max(0.01, Number(n.duration) || 0.1),
                 midi: Number(n.midi) || 60,
-                name: n.name || midiToName(Number(n.midi) || 60),
-                velocity: Number(n.velocity) || 0.8
+                name: isDrumTrack ? `Drum ${n.midi}` : (n.name || midiToName(Number(n.midi) || 60)),
+                velocity: Number(n.velocity) || 0.8,
+                isDrum: isDrumTrack
               })).filter(n => !isNaN(n.time) && !isNaN(n.duration) && !isNaN(n.midi));
 
               if (cleanNotes.length > 0) {
                 totalNotes += cleanNotes.length;
-                const instName = getInstrumentName(track.instrument);
+                const instName = isDrumTrack ? 'Standard Drum Kit' : getInstrumentName(track.instrument);
                 const trackTitle = (track.name && track.name.trim().length > 0)
                   ? track.name.trim()
                   : (instName ? `${instName} (Ch ${track.channel + 1})` : `Track ${idx + 1} (Ch ${track.channel + 1})`);
@@ -1818,6 +2261,8 @@
                   index: idx,
                   name: trackTitle,
                   channel: track.channel,
+                  isDrum: isDrumTrack,
+                  instrument: track.instrument,
                   notes: cleanNotes
                 });
               }
@@ -1831,7 +2276,7 @@
             return;
           }
 
-          this.updatePartSelectDropdowns();
+          this.updateRootPartDropdowns();
           this.autoOptimizeEnsemble();
           this.log('INFO', `MIDI読み込み完了: ${title} (${this.parsedTracks.length} トラック, ${totalNotes} 音)`);
 
@@ -1871,7 +2316,6 @@
 
         if (this.animFrameId) cancelAnimationFrame(this.animFrameId);
 
-        // Stop all robots & PC
         this.rootDevices.forEach(d => d.stopSound());
         this.synth.stopTone();
 
@@ -1898,8 +2342,7 @@
         });
 
         this.synth.stopTone();
-        this.pcDevice.nextIndex = 0;
-        this.pcDevice.currentNote = null;
+        this.pcDevice.trackPipelines.forEach(p => p.nextIndex = 0);
 
         this.currentPlayTime = 0;
 
@@ -1921,15 +2364,18 @@
         document.getElementById('currentTimeDisplay').textContent = formatTime(this.currentPlayTime);
         document.getElementById('seekSlider').value = this.currentPlayTime;
 
-        // Reset indexes
+        // Reset Root robot indexes
         this.rootDevices.forEach(d => {
           d.nextIndex = d.sequence.findIndex(n => (n.time + n.duration) > this.currentPlayTime);
           if (d.nextIndex === -1) d.nextIndex = d.sequence.length;
           d.stopSound();
         });
 
-        this.pcDevice.nextIndex = this.pcDevice.sequence.findIndex(n => (n.time + n.duration) > this.currentPlayTime);
-        if (this.pcDevice.nextIndex === -1) this.pcDevice.nextIndex = this.pcDevice.sequence.length;
+        // Reset PC Multi-Track Pipelines
+        this.pcDevice.trackPipelines.forEach(pipe => {
+          pipe.nextIndex = pipe.sequence.findIndex(n => (n.time + n.duration) > this.currentPlayTime);
+          if (pipe.nextIndex === -1) pipe.nextIndex = pipe.sequence.length;
+        });
         this.synth.stopTone();
 
         if (this.isPlaying) {
@@ -1958,9 +2404,9 @@
           }
         }
 
-        // 1. Trigger notes for each Root robot
+        // 1. Trigger Notes for Root Robots (Melody & Leads)
         this.rootDevices.forEach(dev => {
-          if (!dev.isConnected) return;
+          if (!dev.isConnected || dev.isMuted) return;
           while (dev.nextIndex < dev.sequence.length) {
             const note = dev.sequence[dev.nextIndex];
             if (this.currentPlayTime >= note.time) {
@@ -1972,17 +2418,19 @@
           }
         });
 
-        // 2. Trigger notes for PC Audio Device
+        // 2. Trigger Notes for PC Multi-Track Synthesizer (Drums, Bass, Chords, Guitar)
         if (this.pcDevice.isEnabled && !this.pcDevice.isMuted) {
-          while (this.pcDevice.nextIndex < this.pcDevice.sequence.length) {
-            const note = this.pcDevice.sequence[this.pcDevice.nextIndex];
-            if (this.currentPlayTime >= note.time) {
-              this.triggerPcNote(note);
-              this.pcDevice.nextIndex++;
-            } else {
-              break;
+          this.pcDevice.trackPipelines.forEach(pipe => {
+            while (pipe.nextIndex < pipe.sequence.length) {
+              const note = pipe.sequence[pipe.nextIndex];
+              if (this.currentPlayTime >= note.time) {
+                this.triggerPcNote(note, pipe.category);
+                pipe.nextIndex++;
+              } else {
+                break;
+              }
             }
-          }
+          });
         }
 
         // Update active notes & canvas
@@ -2000,25 +2448,36 @@
         dev.currentNote = note;
         dev.playNote(safeFreq, actualDurationMs);
 
-        // Flash slot color LED
         if (this.isLedSync) {
           dev.setLights(1, dev.theme.rgb[0], dev.theme.rgb[1], dev.theme.rgb[2]);
         }
       }
 
-      triggerPcNote(note) {
-        const actualDurationSec = note.playDuration / this.speed;
-        const safeFreq = Math.max(30, Math.min(8000, note.freq || 440));
-        this.pcDevice.currentNote = note;
-        this.synth.playTone(safeFreq, actualDurationSec, this.pcDevice.volume);
+      triggerPcNote(note, trackCategory) {
+        const actualDurationSec = note.duration / this.speed;
+        if (note.isDrum) {
+          this.synth.playDrum(note.midi, actualDurationSec, note.velocity);
+        } else {
+          const safeFreq = Math.max(25, Math.min(8000, note.freq || 440));
+          this.synth.playInstrumentNote(safeFreq, actualDurationSec, trackCategory, note.velocity);
+        }
       }
 
       updateActiveNoteBadges() {
-        // PC
-        const pcCur = this.pcDevice.sequence.find(n => this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration));
+        // PC active notes
+        let activePcCount = 0;
+        let activeCategoryNames = [];
+        this.pcDevice.trackPipelines.forEach(p => {
+          const cur = p.sequence.find(n => this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration));
+          if (cur) {
+            activePcCount++;
+            if (!activeCategoryNames.includes(p.category)) activeCategoryNames.push(p.category);
+          }
+        });
+
         const pcLabel = document.getElementById('pcActiveNoteDisplay');
-        if (pcCur && this.pcDevice.isEnabled) {
-          pcLabel.textContent = `発音中: ${pcCur.name} (${pcCur.freq}Hz)`;
+        if (activePcCount > 0 && this.pcDevice.isEnabled) {
+          pcLabel.textContent = `演奏中: ${activePcCount} 音同時発音 (${activeCategoryNames.join(', ')})`;
           pcLabel.className = 'text-[11px] font-mono text-sky-400 font-bold';
         } else {
           pcLabel.textContent = '待機中';
@@ -2032,7 +2491,7 @@
           const label = card.querySelector('.active-note-label');
           const cur = dev.sequence.find(n => this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration));
           if (cur && dev.isConnected) {
-            label.textContent = `発音中: ${cur.name} (${cur.freq}Hz)`;
+            label.textContent = `主旋律: ${cur.name} (${cur.freq}Hz)`;
             label.style.color = dev.theme.hex;
             label.className = 'active-note-label text-[11px] font-mono font-bold';
           } else {
@@ -2043,7 +2502,7 @@
         });
 
         // Top overall active note
-        const anyActive = [...this.rootDevices, this.pcDevice].map(d => d.currentNote).filter(Boolean)[0];
+        const anyActive = this.rootDevices.map(d => d.currentNote).filter(Boolean)[0];
         if (anyActive) {
           document.getElementById('activeNoteName').textContent = anyActive.name;
           document.getElementById('activeNoteFreq').textContent = `${anyActive.freq} Hz`;
@@ -2101,7 +2560,6 @@
         const h = this.canvasHeight;
         const ctx = this.ctx;
 
-        // Background
         ctx.fillStyle = '#020617';
         ctx.fillRect(0, 0, w, h);
 
@@ -2117,16 +2575,31 @@
           ctx.stroke();
         }
 
-        // Gather all active device layers
+        // Gather layers
         const layers = [];
-        if (this.pcDevice.isEnabled && this.pcDevice.sequence.length > 0) {
-          layers.push({ name: 'PC Synth', color: PC_THEME.hex, sequence: this.pcDevice.sequence });
-        }
+        // Root layers
         this.rootDevices.forEach(d => {
           if (d.isConnected && d.sequence.length > 0) {
-            layers.push({ name: d.name, color: d.theme.hex, sequence: d.sequence });
+            layers.push({ name: `🤖 ${d.name} (主旋律)`, color: d.theme.hex, sequence: d.sequence, isRoot: true });
           }
         });
+
+        // PC Multi-Track layers
+        if (this.pcDevice.isEnabled) {
+          const categoryColors = {
+            drums: '#94a3b8',
+            bass: '#818cf8',
+            guitar: '#fbbf24',
+            synth_pad: '#38bdf8',
+            harmony: '#38bdf8'
+          };
+          this.pcDevice.trackPipelines.forEach(pipe => {
+            if (pipe.sequence.length > 0) {
+              const col = categoryColors[pipe.category] || '#38bdf8';
+              layers.push({ name: `💻 PC: ${pipe.name}`, color: col, sequence: pipe.sequence, isRoot: false });
+            }
+          });
+        }
 
         // Update Legend
         const legend = document.getElementById('pianoRollLegend');
@@ -2134,7 +2607,7 @@
         layers.forEach(l => {
           const span = document.createElement('span');
           span.className = 'flex items-center gap-1 text-[10px] font-medium';
-          span.innerHTML = `<span class="w-2 h-2 rounded-full" style="background-color: ${l.color}"></span><span class="text-slate-300">${l.name}</span>`;
+          span.innerHTML = `<span class="w-2 h-2 rounded-full" style="background-color: ${l.color}"></span><span class="text-slate-300 truncate max-w-[130px]" title="${l.name}">${l.name}</span>`;
           legend.appendChild(span);
         });
 
@@ -2150,22 +2623,32 @@
         let minMidi = 127, maxMidi = 0;
         layers.forEach(l => {
           l.sequence.forEach(n => {
-            if (n.midi < minMidi) minMidi = n.midi;
-            if (n.midi > maxMidi) maxMidi = n.midi;
+            if (!n.isDrum) {
+              if (n.midi < minMidi) minMidi = n.midi;
+              if (n.midi > maxMidi) maxMidi = n.midi;
+            }
           });
         });
-        minMidi = Math.max(21, minMidi - 2);
-        maxMidi = Math.min(108, maxMidi + 2);
+        minMidi = Math.max(21, minMidi === 127 ? 36 : minMidi - 2);
+        maxMidi = Math.min(108, maxMidi === 0 ? 84 : maxMidi + 2);
         const midiRange = Math.max(12, maxMidi - minMidi);
 
-        // Draw note rectangles layer by layer
+        // Draw note rectangles
         layers.forEach(layer => {
           layer.sequence.forEach(n => {
             const x = (n.time / this.totalDuration) * w;
             const noteWidth = Math.max(2, (n.duration / this.totalDuration) * w - 1);
-            const normPitch = (n.midi - minMidi) / midiRange;
-            const y = h - (normPitch * (h - 20)) - 15;
-            const noteHeight = Math.max(5, Math.min(14, (h / midiRange) * 0.9));
+            
+            let y, noteHeight;
+            if (n.isDrum) {
+              // Draw drums at bottom row
+              y = h - 12;
+              noteHeight = 6;
+            } else {
+              const normPitch = (n.midi - minMidi) / midiRange;
+              y = h - (normPitch * (h - 24)) - 18;
+              noteHeight = Math.max(4, Math.min(14, (h / midiRange) * 0.9));
+            }
 
             const isCurrent = this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration);
 
@@ -2174,10 +2657,10 @@
               ctx.shadowColor = layer.color;
               ctx.shadowBlur = 12;
             } else if (n.time < this.currentPlayTime) {
-              ctx.fillStyle = layer.color + '55'; // Faded
+              ctx.fillStyle = layer.color + '44';
               ctx.shadowBlur = 0;
             } else {
-              ctx.fillStyle = layer.color + 'cc';
+              ctx.fillStyle = layer.color + (layer.isRoot ? 'ff' : 'bb');
               ctx.shadowBlur = 0;
             }
 
