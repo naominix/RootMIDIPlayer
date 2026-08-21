@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>iRobot Root MIDI Player</title>
+  <title>iRobot Root Multi-Device MIDI Player</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -14,18 +14,6 @@
           fontFamily: {
             sans: ['Inter', 'sans-serif'],
             mono: ['JetBrains Mono', 'monospace'],
-          },
-          colors: {
-            root: {
-              50: '#f0fdf4',
-              100: '#dcfce7',
-              500: '#22c55e',
-              600: '#16a34a',
-              700: '#15803d',
-              dark: '#0f172a',
-              card: '#1e293b',
-              border: '#334155',
-            }
           }
         }
       }
@@ -41,75 +29,55 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
-    /* Custom scrollbar */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #0f172a;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #334155;
-      border-radius: 3px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #475569;
-    }
-    /* Animated pulse ring */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
     @keyframes pulse-ring {
       0% { transform: scale(0.95); opacity: 0.8; }
       50% { transform: scale(1.15); opacity: 0.3; }
       100% { transform: scale(0.95); opacity: 0.8; }
     }
-    .pulse-animation {
-      animation: pulse-ring 2s infinite ease-in-out;
-    }
+    .pulse-animation { animation: pulse-ring 2s infinite ease-in-out; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
 
   <!-- Header / Top Bar -->
-  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-40 px-4 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40 px-4 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
     <div class="flex items-center gap-3">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-950/50">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-950/50">
         <i data-lucide="bot" class="w-6 h-6 text-slate-950"></i>
       </div>
       <div>
         <div class="flex items-center gap-2">
           <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
-            Root MIDI Player
+            Root Ensemble Player
           </h1>
-          <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">BLE Buzzer</span>
+          <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">Multi-Robot BLE</span>
         </div>
-        <p class="text-xs text-slate-400">iRobot Root ロボット Web Bluetooth 演奏コントローラー</p>
+        <p class="text-xs text-slate-400">複数台の iRobot Root ＋ PC音源による自動パート割り当て合奏コントローラー</p>
       </div>
     </div>
 
-    <!-- Bluetooth Status & Actions -->
+    <!-- Bluetooth Multi-Device Actions -->
     <div class="flex items-center gap-2.5">
-      <!-- Status Badge -->
-      <div id="bleStatusBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/90 border border-slate-700 text-xs font-medium">
+      <!-- Device Count Badge -->
+      <div id="deviceCountBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-medium">
         <span id="bleStatusDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
-        <span id="bleStatusText" class="text-slate-300">未接続</span>
+        <span id="deviceCountText" class="text-slate-300">Root: 0台接続</span>
       </div>
 
-      <!-- Quick Test Beep Button -->
-      <button id="btnBleTestBeep" disabled title="テスト音 (A4 440Hz 200ms) を送信" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">
-        <i data-lucide="volume-2" class="w-3.5 h-3.5 text-emerald-400"></i>
-        <span>テスト発音</span>
+      <!-- Add Root Robot Button -->
+      <button id="btnAddRoot" class="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-950/50 transition active:scale-95">
+        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+        <span>Rootを追加接続</span>
       </button>
 
-      <!-- Quick LED Test Button -->
-      <button id="btnBleTestLed" disabled title="LED点灯テストを送信" class="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">
-        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i>
-        <span>LEDテスト</span>
-      </button>
-
-      <!-- Connect / Disconnect Button -->
-      <button id="btnBleConnect" class="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-950/50 hover:shadow-emerald-900/40 transition active:scale-95">
-        <i data-lucide="bluetooth" class="w-4 h-4"></i>
-        <span id="btnBleConnectLabel">Rootに接続</span>
+      <!-- Disconnect All Button -->
+      <button id="btnDisconnectAll" disabled class="hidden sm:flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-slate-800 hover:bg-red-900/60 hover:border-red-700 text-slate-300 border border-slate-700 disabled:opacity-30 disabled:pointer-events-none transition">
+        <i data-lucide="power-off" class="w-3.5 h-3.5 text-red-400"></i>
+        <span>一括切断</span>
       </button>
     </div>
   </header>
@@ -123,14 +91,93 @@
   <!-- Main Container -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
 
-    <!-- Top Grid: File Drop & Song Info & Preset -->
+    <!-- 1. Ensemble Devices & Part Allocation Deck -->
+    <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
+      <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <i data-lucide="users" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h2 class="text-sm font-bold text-white">アンサンブル編成・パート割り当て</h2>
+            <p class="text-[11px] text-slate-400">接続された各 Root ロボットおよび PC音源に最適なトラック/パートを配分します</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Auto Optimize Button -->
+          <button id="btnAutoOptimize" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow transition active:scale-95">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+            <span>パート自動最適化</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Device Cards Container -->
+      <div id="deviceCardsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <!-- PC Audio Device Card (Always available) -->
+        <div id="pcAudioCard" class="bg-slate-800/80 border border-sky-500/30 rounded-xl p-3.5 flex flex-col justify-between space-y-3 relative overflow-hidden">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-lg bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400 flex-shrink-0">
+                <i data-lucide="laptop" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-bold text-sky-300">PC / ブラウザ音源</span>
+                  <span class="text-[9px] font-semibold uppercase px-1.5 py-0.2 bg-sky-500/20 text-sky-300 rounded">Synth</span>
+                </div>
+                <div id="pcActiveNoteDisplay" class="text-[11px] font-mono text-slate-400">待機中</div>
+              </div>
+            </div>
+            <!-- Enable Toggle -->
+            <label class="relative inline-flex items-center cursor-pointer" title="PC音源のON/OFF">
+              <input type="checkbox" id="togglePcAudio" checked class="sr-only peer">
+              <div class="w-8 h-4.5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-sky-500"></div>
+            </label>
+          </div>
+
+          <!-- Part Assignment Selector -->
+          <div class="space-y-1 text-xs">
+            <div class="flex items-center justify-between text-[11px] text-slate-400">
+              <span>担当パート:</span>
+              <span id="pcAssignedRoleBadge" class="text-[10px] text-sky-400 font-medium">自動割り当て</span>
+            </div>
+            <select id="pcPartSelect" class="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none">
+              <option value="auto" selected>⚡ 自動 (Rootと別パートを担当)</option>
+              <option value="all">全トラック統合 (All Merged)</option>
+            </select>
+          </div>
+
+          <!-- Volume & Mute Row -->
+          <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-700/50 text-xs">
+            <div class="flex items-center gap-1.5 flex-1">
+              <i data-lucide="volume-2" class="w-3.5 h-3.5 text-slate-400"></i>
+              <input type="range" id="pcVolumeSlider" min="0" max="1" step="0.05" value="0.7" class="w-full h-1.5 bg-slate-700 rounded appearance-none accent-sky-400 cursor-pointer">
+            </div>
+            <button id="btnPcMute" class="px-2 py-1 rounded bg-slate-700/80 hover:bg-slate-700 text-[11px] text-slate-300 transition" title="ミュート">
+              消音
+            </button>
+          </div>
+        </div>
+
+        <!-- Dynamic Root Robot Cards will be inserted here -->
+      </div>
+
+      <!-- Empty state if no Root robots connected -->
+      <div id="noRootMessage" class="bg-slate-800/40 border border-dashed border-slate-700/80 rounded-xl p-4 text-center text-xs text-slate-400">
+        <p>現在 Root ロボットは接続されていません。「<span class="text-emerald-400 font-semibold">Rootを追加接続</span>」ボタンを押すと、1台以上のロボットをペアリングしてパート合奏を行えます。（PC音源のみでの試聴も可能です）</p>
+      </div>
+    </section>
+
+    <!-- 2. MIDI File Drop & Presets & Info Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
       <!-- Left Column: File Drop & Presets (5 cols) -->
       <div class="lg:col-span-5 space-y-4">
         
         <!-- File Drop Area -->
-        <div id="dropZone" class="relative group border-2 border-dashed border-slate-700 hover:border-emerald-500/80 bg-slate-900/60 hover:bg-slate-900/90 rounded-2xl p-6 text-center transition cursor-pointer flex flex-col items-center justify-center min-h-[190px]">
+        <div id="dropZone" class="relative group border-2 border-dashed border-slate-700 hover:border-emerald-500/80 bg-slate-900/60 hover:bg-slate-900/90 rounded-2xl p-6 text-center transition cursor-pointer flex flex-col items-center justify-center min-h-[180px]">
           <input type="file" id="fileInput" accept=".mid,.midi" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10">
           <div class="w-12 h-12 rounded-xl bg-slate-800 group-hover:bg-emerald-500/20 text-slate-400 group-hover:text-emerald-400 flex items-center justify-center mb-3 transition">
             <i data-lucide="upload-cloud" class="w-6 h-6"></i>
@@ -146,7 +193,7 @@
           <div class="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
             <span class="flex items-center gap-1.5">
               <i data-lucide="music-2" class="w-3.5 h-3.5 text-emerald-400"></i>
-              プリセット楽曲（すぐにテスト）
+              プリセット楽曲
             </span>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -187,7 +234,7 @@
               <p id="songMetaDisplay" class="text-xs text-slate-400 mt-0.5">MIDIファイルをアップロードするか、左側のプリセットを選択してください</p>
             </div>
             <div id="activeNoteBadge" class="flex-shrink-0 px-3 py-1.5 bg-slate-800/90 border border-slate-700 rounded-xl text-right min-w-[90px]">
-              <div class="text-[10px] uppercase font-semibold text-slate-400">演奏中ノート</div>
+              <div class="text-[10px] uppercase font-semibold text-slate-400">全体ノート</div>
               <div id="activeNoteName" class="text-lg font-bold font-mono text-emerald-400">---</div>
               <div id="activeNoteFreq" class="text-[10px] font-mono text-slate-400">0 Hz</div>
             </div>
@@ -214,34 +261,22 @@
           </div>
         </div>
 
-        <!-- Track Selector & Monophonic Settings -->
-        <div class="pt-2 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-          <div>
-            <label for="trackSelect" class="block font-medium text-slate-300 mb-1 flex items-center justify-between">
-              <span>再生トラック選択</span>
-              <span id="trackNotesInfo" class="text-[10px] text-slate-400"></span>
-            </label>
-            <select id="trackSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none">
-              <option value="all">全トラック統合 (All Merged)</option>
-            </select>
+        <!-- Ensemble Allocation Summary -->
+        <div class="pt-2 border-t border-slate-800/80 text-xs">
+          <div class="flex items-center justify-between text-slate-400 mb-1.5">
+            <span class="font-semibold text-slate-300">現在のパート配分ステータス:</span>
+            <span id="allocationStrategyText" class="text-emerald-400 font-mono text-[11px]">自動配分中</span>
           </div>
-          <div>
-            <label for="polyStrategySelect" class="block font-medium text-slate-300 mb-1 flex items-center justify-between">
-              <span>単音化（和音処理）方式</span>
-              <span class="text-[10px] text-emerald-400">Root対応</span>
-            </label>
-            <select id="polyStrategySelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none">
-              <option value="highest" selected>高音優先 (Highest / メロディ推奨)</option>
-              <option value="lowest">低音優先 (Lowest / ベースライン)</option>
-              <option value="velocity">強音優先 (Loudest / ベロシティ最大)</option>
-            </select>
+          <div id="allocationSummaryList" class="flex flex-wrap gap-1.5">
+            <!-- Dynamic pills for assigned parts -->
+            <span class="px-2 py-0.5 rounded bg-slate-800 text-[11px] text-slate-400">楽曲を読み込むと配分が表示されます</span>
           </div>
         </div>
 
       </div>
     </div>
 
-    <!-- Middle Section: Playback Controller & Options -->
+    <!-- 3. Middle Section: Playback Controller & Options -->
     <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
       
       <!-- Progress Bar / Scrubber -->
@@ -260,7 +295,7 @@
         </div>
       </div>
 
-      <!-- Controls Row: Play, Pause, Stop, Seek, Speed, Transpose -->
+      <!-- Controls Row -->
       <div class="flex flex-wrap items-center justify-between gap-4 pt-1">
         
         <!-- Main Transport Buttons -->
@@ -268,7 +303,7 @@
           <!-- Play / Resume Button -->
           <button id="btnPlay" class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-sm shadow-lg shadow-emerald-950/60 transition">
             <i data-lucide="play" class="w-4 h-4 fill-current"></i>
-            <span id="btnPlayText">再生</span>
+            <span id="btnPlayText">合奏を開始</span>
           </button>
           
           <!-- Pause Button -->
@@ -320,21 +355,12 @@
             <span id="gateRatioDisplay" class="font-mono text-slate-300 font-bold text-[11px]">85%</span>
           </div>
 
-          <!-- Local Web Audio Synth Preview Toggle -->
-          <label class="flex items-center gap-2 cursor-pointer bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 select-none hover:bg-slate-800 transition">
-            <input type="checkbox" id="toggleWebAudio" checked class="w-4 h-4 text-emerald-500 rounded border-slate-600 focus:ring-emerald-500 accent-emerald-500">
-            <span class="text-slate-200 font-medium flex items-center gap-1">
-              <i data-lucide="headphones" class="w-3.5 h-3.5 text-cyan-400"></i>
-              ブラウザ音声プレビュー
-            </span>
-          </label>
-
           <!-- Robot LED Sync Toggle -->
           <label class="flex items-center gap-2 cursor-pointer bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 select-none hover:bg-slate-800 transition">
             <input type="checkbox" id="toggleLedSync" checked class="w-4 h-4 text-emerald-500 rounded border-slate-600 focus:ring-emerald-500 accent-emerald-500">
             <span class="text-slate-200 font-medium flex items-center gap-1">
               <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i>
-              Root LED連動
+              Root LED色分け発光
             </span>
           </label>
 
@@ -343,26 +369,29 @@
       </div>
     </div>
 
-    <!-- Visualizer / Piano Roll Canvas -->
+    <!-- 4. Visualizer / Multi-part Piano Roll Canvas -->
     <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-2">
-      <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
+      <div class="flex flex-wrap items-center justify-between text-xs font-semibold text-slate-400 gap-2">
         <span class="flex items-center gap-1.5">
           <i data-lucide="bar-chart-2" class="w-3.5 h-3.5 text-emerald-400"></i>
-          メロディ ピアノロール（シーケンス可視化）
+          マルチパート ピアノロール（デバイス別カラー可視化）
         </span>
-        <span class="text-[11px] text-slate-500">クリックしてシーク可能 / 発音中ノートをハイライト</span>
+        <!-- Legend of colors -->
+        <div id="pianoRollLegend" class="flex flex-wrap items-center gap-2 text-[10px]">
+          <!-- Dynamic legend pills -->
+        </div>
       </div>
-      <div class="relative w-full h-48 bg-slate-950 rounded-xl overflow-hidden border border-slate-800/80">
-        <canvas id="pianoRollCanvas" class="w-full h-full block"></canvas>
+      <div class="relative w-full h-52 bg-slate-950 rounded-xl overflow-hidden border border-slate-800/80">
+        <canvas id="pianoRollCanvas" class="w-full h-full block cursor-pointer"></canvas>
       </div>
     </div>
 
-    <!-- Bottom Section: BLE Packet Inspector / Console Log (Collapsible) -->
+    <!-- 5. BLE Packet Inspector / Console Log (Collapsible) -->
     <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden">
       <button id="btnToggleLog" class="w-full px-5 py-3 flex items-center justify-between text-xs font-semibold text-slate-300 hover:bg-slate-800/50 transition">
         <span class="flex items-center gap-2">
           <i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i>
-          BLE コマンド送信ログ・パケットモニター (Device 5: Sound)
+          BLE コマンド送信ログ・マルチデバイスモニター
         </span>
         <div class="flex items-center gap-2">
           <span id="logCountBadge" class="px-2 py-0.5 bg-slate-800 rounded-full text-[10px] font-mono text-slate-400">0 packets</span>
@@ -371,7 +400,7 @@
       </button>
       <div id="logContainer" class="hidden p-4 border-t border-slate-800 bg-slate-950 font-mono text-xs text-slate-300 space-y-1 max-h-56 overflow-y-auto">
         <div class="flex items-center justify-between text-[11px] text-slate-500 pb-2 border-b border-slate-800">
-          <span>時刻 / 種別 / Dev / Cmd / Inc / ペイロード (周波数, 発音時間) / CRC8</span>
+          <span>時刻 / デバイス / 送信コマンド / 周波数 / 発音時間 / 20バイトパケット</span>
           <button id="btnClearLog" class="text-slate-400 hover:text-slate-200 underline">ログ消去</button>
         </div>
         <div id="logList" class="space-y-1 pt-1">
@@ -384,7 +413,7 @@
 
   <!-- Footer -->
   <footer class="border-t border-slate-800 py-4 px-4 text-center text-xs text-slate-400">
-    <p>iRobot Root® Bluetooth LE MIDI Player — Built with Web Bluetooth API, @tonejs/midi &amp; Tailwind CSS</p>
+    <p>iRobot Root® Bluetooth LE Multi-Device MIDI Player — Built with Web Bluetooth API, @tonejs/midi &amp; Tailwind CSS</p>
   </footer>
 
   <!-- Application Logic -->
@@ -395,14 +424,25 @@
     const ROOT_BLE = {
       IDENTIFIER_SERVICE: '48c5d828-ac2a-442d-97a3-0c9822b04979',
       UART_SERVICE:       '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
-      TX_CHARACTERISTIC:  '6e400002-b5a3-f393-e0a9-e50e24dcca9e', // Host Write to Robot
-      RX_CHARACTERISTIC:  '6e400003-b5a3-f393-e0a9-e50e24dcca9e', // Robot Notify to Host
+      TX_CHARACTERISTIC:  '6e400002-b5a3-f393-e0a9-e50e24dcca9e',
+      RX_CHARACTERISTIC:  '6e400003-b5a3-f393-e0a9-e50e24dcca9e',
       DEVICE_SOUND: 5,
       CMD_PLAY_NOTE: 0,
       CMD_STOP_SOUND: 1,
       DEVICE_LIGHTS: 3,
       CMD_SET_LIGHTS: 2,
     };
+
+    // Device Color Themes (Palette for Root slots)
+    const DEVICE_THEMES = [
+      { id: 'emerald', name: 'Emerald', hex: '#10b981', rgb: [34, 197, 94], badgeClass: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+      { id: 'cyan',    name: 'Cyan',    hex: '#06b6d4', rgb: [6, 182, 212],  badgeClass: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
+      { id: 'violet',  name: 'Violet',  hex: '#a855f7', rgb: [168, 85, 247], badgeClass: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
+      { id: 'amber',   name: 'Amber',   hex: '#f59e0b', rgb: [245, 158, 11], badgeClass: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+      { id: 'rose',    name: 'Rose',    hex: '#f43f5e', rgb: [244, 63, 94],  badgeClass: 'bg-rose-500/20 text-rose-400 border-rose-500/30' }
+    ];
+
+    const PC_THEME = { id: 'sky', name: 'PC Synth', hex: '#38bdf8', rgb: [56, 189, 248], badgeClass: 'bg-sky-500/20 text-sky-400 border-sky-500/30' };
 
     // General MIDI Instrument Names
     const GM_INSTRUMENTS = [
@@ -471,7 +511,6 @@
       return crc;
     }
 
-    // Create 20-byte Play Note Packet
     function createPlayNotePacket(freqHz, durationMs, inc = 0) {
       const buf = new Uint8Array(20);
       buf[0] = ROOT_BLE.DEVICE_SOUND;
@@ -488,12 +527,10 @@
       buf[7] = (dur >>> 8) & 0xFF;
       buf[8] = dur & 0xFF;
 
-      // Bytes 9..18 are 0 padding
       buf[19] = calculateCRC8(buf.subarray(0, 19));
       return buf;
     }
 
-    // Create 20-byte Stop Sound Packet
     function createStopSoundPacket(inc = 0) {
       const buf = new Uint8Array(20);
       buf[0] = ROOT_BLE.DEVICE_SOUND;
@@ -503,13 +540,12 @@
       return buf;
     }
 
-    // Create 20-byte Set Lights Packet
     function createSetLightsPacket(animation, r, g, b, inc = 0) {
       const buf = new Uint8Array(20);
       buf[0] = ROOT_BLE.DEVICE_LIGHTS;
       buf[1] = ROOT_BLE.CMD_SET_LIGHTS;
       buf[2] = inc & 0xFF;
-      buf[3] = animation & 0xFF; // 0: off, 1: on, 2: blink, 3: spin
+      buf[3] = animation & 0xFF;
       buf[4] = Math.min(255, Math.max(0, r));
       buf[5] = Math.min(255, Math.max(0, g));
       buf[6] = Math.min(255, Math.max(0, b));
@@ -517,12 +553,10 @@
       return buf;
     }
 
-    // Note number to Frequency (Hz)
     function midiToFreq(midiNumber) {
       return 440 * Math.pow(2, (midiNumber - 69) / 12);
     }
 
-    // MIDI Note number to Name (e.g. 60 -> C4)
     function midiToName(midiNumber) {
       const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
       const octave = Math.floor(midiNumber / 12) - 1;
@@ -530,7 +564,6 @@
       return names[noteIndex] + octave;
     }
 
-    // Format seconds to mm:ss.s
     function formatTime(sec) {
       if (isNaN(sec) || sec < 0) sec = 0;
       const m = Math.floor(sec / 60);
@@ -540,17 +573,28 @@
     }
 
     // ==========================================
-    // 3. Web Bluetooth Manager
+    // 3. Individual Root Robot Device Class
     // ==========================================
-    class BleManager {
-      constructor() {
-        this.device = null;
+    class RootRobotDevice {
+      constructor(slotIndex, bluetoothDevice) {
+        this.slotIndex = slotIndex;
+        this.device = bluetoothDevice;
+        this.name = bluetoothDevice.name || `Root #${slotIndex + 1}`;
+        this.theme = DEVICE_THEMES[slotIndex % DEVICE_THEMES.length];
+        
         this.server = null;
         this.txCharacteristic = null;
         this.rxCharacteristic = null;
         this.isConnected = false;
         this.seqInc = 0;
         this.packetQueue = Promise.resolve();
+
+        this.assignedPart = 'auto'; // 'auto', 'track_X', 'voice_X', 'all'
+        this.autoResolvedRole = '';
+        this.sequence = [];
+        this.nextIndex = 0;
+        this.currentNote = null;
+        this.isMuted = false;
       }
 
       getNextInc() {
@@ -559,47 +603,11 @@
       }
 
       async connect() {
-        if (!navigator.bluetooth) {
-          throw new Error('Web Bluetooth API がサポートされていません。');
-        }
-
-        app.log('BLE', 'スキャン開始 (iRobot Rootを探しています)...');
-        
-        let device;
-        try {
-          device = await navigator.bluetooth.requestDevice({
-            filters: [
-              { services: [ROOT_BLE.IDENTIFIER_SERVICE] },
-              { namePrefix: 'Root' }
-            ],
-            optionalServices: [
-              ROOT_BLE.IDENTIFIER_SERVICE,
-              ROOT_BLE.UART_SERVICE
-            ]
-          });
-        } catch (filterErr) {
-          if (filterErr.name === 'NotFoundError') {
-            throw new Error('デバイスの選択がキャンセルされました。');
-          }
-          device = await navigator.bluetooth.requestDevice({
-            acceptAllDevices: true,
-            optionalServices: [
-              ROOT_BLE.IDENTIFIER_SERVICE,
-              ROOT_BLE.UART_SERVICE
-            ]
-          });
-        }
-
-        this.device = device;
+        app.log('BLE', `[${this.name}] GATT接続中...`);
         this.device.addEventListener('gattserverdisconnected', () => this.onDisconnected());
-
-        app.log('BLE', `接続中: ${device.name || 'Root Robot'}...`);
+        
         this.server = await this.device.gatt.connect();
-
-        app.log('BLE', 'GATT UARTサービスを取得中...');
         const service = await this.server.getPrimaryService(ROOT_BLE.UART_SERVICE);
-
-        app.log('BLE', 'TX/RXキャラクタリスティックを取得中...');
         this.txCharacteristic = await service.getCharacteristic(ROOT_BLE.TX_CHARACTERISTIC);
         this.rxCharacteristic = await service.getCharacteristic(ROOT_BLE.RX_CHARACTERISTIC);
 
@@ -608,16 +616,15 @@
           this.rxCharacteristic.addEventListener('characteristicvaluechanged', (e) => {
             this.handleRxPacket(e.target.value);
           });
-          app.log('BLE', 'RX 受信通知リスナーを開始しました。');
         } catch (rxErr) {
-          console.warn('Could not start RX notifications:', rxErr);
+          console.warn(`[${this.name}] Notifications error:`, rxErr);
         }
 
         this.isConnected = true;
-        app.updateBleUI();
-        app.log('BLE', `接続完了: ${device.name || 'Root'}`);
-
-        await this.setLights(3, 34, 197, 94); // Spin Green
+        app.log('BLE', `[${this.name}] 接続完了！`);
+        
+        // Spin LED with slot color
+        await this.setLights(3, this.theme.rgb[0], this.theme.rgb[1], this.theme.rgb[2]);
       }
 
       async disconnect() {
@@ -633,12 +640,12 @@
 
       onDisconnected() {
         this.isConnected = false;
-        this.device = null;
         this.server = null;
         this.txCharacteristic = null;
         this.rxCharacteristic = null;
-        app.updateBleUI();
-        app.log('BLE', 'Root ロボットが切断されました。');
+        this.currentNote = null;
+        app.log('BLE', `[${this.name}] 切断されました。`);
+        app.onDeviceListChanged();
       }
 
       async writePacket(packetBytes, description = '') {
@@ -652,11 +659,11 @@
               await this.txCharacteristic.writeValue(packetBytes);
             }
             if (description) {
-              app.logPacket('TX', packetBytes, description);
+              app.logPacket(`TX:${this.name}`, packetBytes, description);
             }
           } catch (err) {
-            console.error('BLE write error:', err);
-            app.log('ERR', `送信エラー: ${err.message}`);
+            console.error(`[${this.name}] BLE write error:`, err);
+            app.log('ERR', `[${this.name}] 送信エラー: ${err.message}`);
           }
         }).catch(err => {
           console.error('Packet queue error:', err);
@@ -666,10 +673,10 @@
       }
 
       async playNote(freqHz, durationMs) {
+        if (this.isMuted) return;
         const inc = this.getNextInc();
         const packet = createPlayNotePacket(freqHz, durationMs, inc);
-        const desc = `PlayNote: ${Math.round(freqHz)}Hz (${durationMs}ms)`;
-        return this.writePacket(packet, desc);
+        return this.writePacket(packet, `PlayNote: ${Math.round(freqHz)}Hz (${durationMs}ms)`);
       }
 
       async stopSound() {
@@ -690,19 +697,18 @@
         const cmd = dataView.getUint8(1);
         const inc = dataView.getUint8(2);
         const raw = new Uint8Array(dataView.buffer);
-        app.logPacket('RX', raw, `Dev:${dev} Cmd:${cmd} Inc:${inc}`);
+        app.logPacket(`RX:${this.name}`, raw, `Dev:${dev} Cmd:${cmd} Inc:${inc}`);
       }
     }
 
     // ==========================================
-    // 4. Web Audio Synthesizer (Local Preview)
+    // 4. Web Audio Synthesizer (Local Preview / PC Device)
     // ==========================================
     class LocalSynth {
       constructor() {
         this.ctx = null;
         this.currentOsc = null;
         this.currentGain = null;
-        this.isEnabled = true;
       }
 
       init() {
@@ -715,8 +721,7 @@
         }
       }
 
-      playTone(freqHz, durationSec) {
-        if (!this.isEnabled) return;
+      playTone(freqHz, durationSec, volume = 0.7) {
         this.init();
         this.stopTone();
 
@@ -731,10 +736,11 @@
         const attack = 0.005;
         const decay = 0.02;
         const dur = Math.max(0.04, durationSec);
+        const targetGain = Math.max(0.001, Math.min(0.3, volume * 0.2));
 
         gain.gain.setValueAtTime(0.001, now);
-        gain.gain.exponentialRampToValueAtTime(0.15, now + attack);
-        gain.gain.setValueAtTime(0.15, now + dur - decay);
+        gain.gain.exponentialRampToValueAtTime(targetGain, now + attack);
+        gain.gain.setValueAtTime(targetGain, now + dur - decay);
         gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
 
         osc.connect(gain);
@@ -811,14 +817,7 @@
           { midi: 64, name: 'E4', time: 6.05, duration: 0.45 },
           { midi: 62, name: 'D4', time: 6.6, duration: 0.45 },
           { midi: 62, name: 'D4', time: 7.15, duration: 0.45 },
-          { midi: 60, name: 'C4', time: 7.7, duration: 0.95 },
-          { midi: 67, name: 'G4', time: 8.8, duration: 0.45 },
-          { midi: 67, name: 'G4', time: 9.35, duration: 0.45 },
-          { midi: 65, name: 'F4', time: 9.9, duration: 0.45 },
-          { midi: 65, name: 'F4', time: 10.45, duration: 0.45 },
-          { midi: 64, name: 'E4', time: 11.0, duration: 0.45 },
-          { midi: 64, name: 'E4', time: 11.55, duration: 0.45 },
-          { midi: 62, name: 'D4', time: 12.1, duration: 0.95 }
+          { midi: 60, name: 'C4', time: 7.7, duration: 0.95 }
         ]
       },
       ode_to_joy: {
@@ -858,11 +857,7 @@
           { midi: 60, name: 'C4', time: 2.64, duration: 0.22 },
           { midi: 64, name: 'E4', time: 2.88, duration: 0.22 },
           { midi: 69, name: 'A4', time: 3.12, duration: 0.22 },
-          { midi: 71, name: 'B4', time: 3.36, duration: 0.60 },
-          { midi: 64, name: 'E4', time: 4.08, duration: 0.22 },
-          { midi: 68, name: 'G#4', time: 4.32, duration: 0.22 },
-          { midi: 71, name: 'B4', time: 4.56, duration: 0.22 },
-          { midi: 72, name: 'C5', time: 4.80, duration: 0.60 }
+          { midi: 71, name: 'B4', time: 3.36, duration: 0.60 }
         ]
       },
       canon: {
@@ -876,27 +871,17 @@
           { midi: 67, name: 'G4', time: 2.66, duration: 0.6 },
           { midi: 66, name: 'F#4', time: 3.33, duration: 0.6 },
           { midi: 67, name: 'G4', time: 4.00, duration: 0.6 },
-          { midi: 69, name: 'A4', time: 4.66, duration: 0.6 },
-          { midi: 74, name: 'D5', time: 5.33, duration: 0.3 },
-          { midi: 73, name: 'C#5', time: 5.66, duration: 0.3 },
-          { midi: 74, name: 'D5', time: 6.00, duration: 0.3 },
-          { midi: 76, name: 'E5', time: 6.33, duration: 0.3 },
-          { midi: 78, name: 'F#5', time: 6.66, duration: 0.3 },
-          { midi: 76, name: 'E5', time: 7.00, duration: 0.3 },
-          { midi: 74, name: 'D5', time: 7.33, duration: 0.3 },
-          { midi: 73, name: 'C#5', time: 7.66, duration: 0.3 }
+          { midi: 69, name: 'A4', time: 4.66, duration: 0.6 }
         ]
       }
     };
 
     // ==========================================
-    // 6. Robust Monophonic Conversion Algorithm
+    // 6. Monophonic & Voice Splitting Algorithms
     // ==========================================
     function monophonizeNotes(rawNotes, strategy = 'highest', gateRatio = 0.85, transpose = 0) {
       if (!rawNotes || rawNotes.length === 0) return [];
 
-      // Explicitly extract all properties from rawNotes instead of using object spread
-      // (This guarantees compatibility with Tone.js Note class instances where time/duration are getters)
       const notes = rawNotes.map(n => {
         const time = Number(n.time) >= 0 ? Number(n.time) : 0;
         const duration = Math.max(0.01, Number(n.duration) || 0.1);
@@ -914,7 +899,6 @@
 
       if (notes.length === 0) return [];
 
-      // Extract unique time slice points
       const timeSet = new Set();
       notes.forEach(n => {
         timeSet.add(Math.round(n.time * 1000) / 1000);
@@ -927,7 +911,7 @@
         const t0 = times[i];
         const t1 = times[i + 1];
         const dt = t1 - t0;
-        if (dt < 0.005) continue; // Skip micro glitches < 5ms
+        if (dt < 0.005) continue;
 
         const midT = (t0 + t1) / 2;
         const active = notes.filter(n => n.time <= midT && (n.time + n.duration) >= midT);
@@ -953,7 +937,6 @@
         }
       }
 
-      // Merge contiguous identical notes
       const merged = [];
       for (let i = 0; i < slices.length; i++) {
         const cur = slices[i];
@@ -967,7 +950,6 @@
         merged.push({ ...cur });
       }
 
-      // Apply Gate Ratio & Compute Frequencies
       return merged.map(n => {
         const playDuration = Math.max(0.03, n.duration * gateRatio);
         const freq = midiToFreq(n.midi);
@@ -984,35 +966,132 @@
       });
     }
 
+    // Split polyphonic track into ranked voices (Voice 0: Top, Voice 1: Mid, Voice 2: Bot...)
+    function extractVoiceFromNotes(rawNotes, voiceRank = 0, totalVoices = 3, gateRatio = 0.85, transpose = 0) {
+      if (!rawNotes || rawNotes.length === 0) return [];
+
+      const notes = rawNotes.map(n => {
+        const time = Number(n.time) >= 0 ? Number(n.time) : 0;
+        const duration = Math.max(0.01, Number(n.duration) || 0.1);
+        const rawMidi = Number(n.midi) || 60;
+        const velocity = Number(n.velocity) || 0.8;
+        const transposedMidi = Math.min(108, Math.max(21, rawMidi + transpose));
+        return {
+          time, duration,
+          midi: transposedMidi,
+          name: midiToName(transposedMidi),
+          velocity
+        };
+      }).filter(n => !isNaN(n.time) && !isNaN(n.duration) && !isNaN(n.midi));
+
+      const timeSet = new Set();
+      notes.forEach(n => {
+        timeSet.add(Math.round(n.time * 1000) / 1000);
+        timeSet.add(Math.round((n.time + n.duration) * 1000) / 1000);
+      });
+      const times = Array.from(timeSet).sort((a, b) => a - b);
+
+      const slices = [];
+      for (let i = 0; i < times.length - 1; i++) {
+        const t0 = times[i];
+        const t1 = times[i + 1];
+        const dt = t1 - t0;
+        if (dt < 0.005) continue;
+
+        const midT = (t0 + t1) / 2;
+        const active = notes.filter(n => n.time <= midT && (n.time + n.duration) >= midT);
+        if (active.length === 0) continue;
+
+        // Sort by pitch descending
+        active.sort((a, b) => b.midi - a.midi);
+
+        // Pick the voice for this rank
+        let targetNote = null;
+        if (voiceRank < active.length) {
+          targetNote = active[voiceRank];
+        } else if (voiceRank === totalVoices - 1 && active.length > 0) {
+          // Bottom voice gets lowest note
+          targetNote = active[active.length - 1];
+        }
+
+        if (targetNote) {
+          slices.push({
+            time: t0,
+            duration: dt,
+            midi: targetNote.midi,
+            name: targetNote.name,
+            velocity: targetNote.velocity
+          });
+        }
+      }
+
+      // Merge
+      const merged = [];
+      for (let i = 0; i < slices.length; i++) {
+        const cur = slices[i];
+        if (merged.length > 0) {
+          const prev = merged[merged.length - 1];
+          if (Math.abs((prev.time + prev.duration) - cur.time) < 0.015 && prev.midi === cur.midi) {
+            prev.duration += cur.duration;
+            continue;
+          }
+        }
+        merged.push({ ...cur });
+      }
+
+      return merged.map(n => {
+        const playDuration = Math.max(0.03, n.duration * gateRatio);
+        const freq = midiToFreq(n.midi);
+        return {
+          time: n.time,
+          duration: n.duration,
+          playDuration,
+          durationMs: Math.round(playDuration * 1000),
+          midi: n.midi,
+          name: n.name,
+          freq: Math.round(freq * 10) / 10,
+          freqRounded: Math.round(freq)
+        };
+      });
+    }
+
     // ==========================================
-    // 7. Main Application State & Engine
+    // 7. Main Application Class
     // ==========================================
     class App {
       constructor() {
-        this.ble = new BleManager();
         this.synth = new LocalSynth();
+        this.rootDevices = []; // Array of RootRobotDevice
+
+        // PC Audio Device State
+        this.pcDevice = {
+          name: 'PC Synth',
+          theme: PC_THEME,
+          isEnabled: true,
+          assignedPart: 'auto', // 'auto', 'track_X', 'voice_X', 'all'
+          autoResolvedRole: '',
+          volume: 0.7,
+          isMuted: false,
+          sequence: [],
+          nextIndex: 0,
+          currentNote: null
+        };
 
         this.rawMidi = null;
         this.parsedTracks = [];
-        this.selectedTrack = 'all';
-        this.polyStrategy = 'highest';
         this.transpose = 0;
         this.speed = 1.0;
         this.gateRatio = 0.85;
         this.isLooping = false;
         this.isLedSync = true;
-
-        this.melodySequence = [];
         this.totalDuration = 0;
 
-        // Playback Engine State
+        // Playback Engine
         this.isPlaying = false;
         this.isPaused = false;
         this.playbackStartTime = 0;
         this.currentPlayTime = 0;
-        this.nextNoteIndex = 0;
         this.animFrameId = null;
-
         this.packetLogs = [];
       }
 
@@ -1021,6 +1100,7 @@
         this.bindEvents();
         this.initCanvas();
         this.loadPreset('mario');
+        this.renderDeviceCards();
         lucide.createIcons();
       }
 
@@ -1031,32 +1111,56 @@
       }
 
       bindEvents() {
-        // BLE Connect Button
-        document.getElementById('btnBleConnect').addEventListener('click', async () => {
-          if (this.ble.isConnected) {
-            await this.ble.disconnect();
+        // Add Root Robot Button
+        document.getElementById('btnAddRoot').addEventListener('click', async () => {
+          try {
+            await this.pairNewRootRobot();
+          } catch (err) {
+            this.log('ERR', err.message);
+            alert('Rootロボットの接続に失敗しました:\n' + err.message);
+          }
+        });
+
+        // Disconnect All
+        document.getElementById('btnDisconnectAll').addEventListener('click', async () => {
+          for (const dev of this.rootDevices) {
+            await dev.disconnect();
+          }
+          this.rootDevices = [];
+          this.onDeviceListChanged();
+        });
+
+        // Auto Optimize Ensemble
+        document.getElementById('btnAutoOptimize').addEventListener('click', () => {
+          this.autoOptimizeEnsemble();
+        });
+
+        // PC Audio Controls
+        document.getElementById('togglePcAudio').addEventListener('change', (e) => {
+          this.pcDevice.isEnabled = e.target.checked;
+          if (!this.pcDevice.isEnabled) this.synth.stopTone();
+          this.recalculateEnsembleSequences();
+        });
+
+        document.getElementById('pcPartSelect').addEventListener('change', (e) => {
+          this.pcDevice.assignedPart = e.target.value;
+          this.recalculateEnsembleSequences();
+        });
+
+        document.getElementById('pcVolumeSlider').addEventListener('input', (e) => {
+          this.pcDevice.volume = parseFloat(e.target.value);
+        });
+
+        document.getElementById('btnPcMute').addEventListener('click', () => {
+          this.pcDevice.isMuted = !this.pcDevice.isMuted;
+          const btn = document.getElementById('btnPcMute');
+          if (this.pcDevice.isMuted) {
+            btn.classList.add('bg-red-600', 'text-white');
+            btn.textContent = '消音中';
+            this.synth.stopTone();
           } else {
-            try {
-              await this.ble.connect();
-            } catch (err) {
-              this.log('ERR', err.message);
-              alert('Bluetooth接続に失敗しました:\n' + err.message);
-            }
-          }
-        });
-
-        // Test Beep
-        document.getElementById('btnBleTestBeep').addEventListener('click', async () => {
-          if (this.ble.isConnected) {
-            await this.ble.playNote(440, 200);
-            if (this.synth.isEnabled) this.synth.playTone(440, 0.2);
-          }
-        });
-
-        // Test LED
-        document.getElementById('btnBleTestLed').addEventListener('click', async () => {
-          if (this.ble.isConnected) {
-            await this.ble.setLights(3, 14, 165, 233);
+            btn.classList.remove('bg-red-600', 'text-white');
+            btn.textContent = '消音';
           }
         });
 
@@ -1098,18 +1202,6 @@
           });
         });
 
-        // Track Selector
-        document.getElementById('trackSelect').addEventListener('change', (e) => {
-          this.selectedTrack = e.target.value;
-          this.processMidiData();
-        });
-
-        // Polyphonic Strategy Selector
-        document.getElementById('polyStrategySelect').addEventListener('change', (e) => {
-          this.polyStrategy = e.target.value;
-          this.processMidiData();
-        });
-
         // Transpose Buttons
         document.getElementById('btnTransposeDown').addEventListener('click', () => {
           this.setTranspose(this.transpose - 1);
@@ -1127,13 +1219,7 @@
         document.getElementById('gateRatioSlider').addEventListener('input', (e) => {
           this.gateRatio = parseFloat(e.target.value);
           document.getElementById('gateRatioDisplay').textContent = Math.round(this.gateRatio * 100) + '%';
-          this.processMidiData();
-        });
-
-        // Web Audio Synth Toggle
-        document.getElementById('toggleWebAudio').addEventListener('change', (e) => {
-          this.synth.isEnabled = e.target.checked;
-          if (!this.synth.isEnabled) this.synth.stopTone();
+          this.recalculateEnsembleSequences();
         });
 
         // LED Sync Toggle
@@ -1155,12 +1241,17 @@
 
         // Skip to First Note Button
         document.getElementById('btnJumpFirstNote').addEventListener('click', () => {
-          if (this.melodySequence.length > 0) {
-            this.seekTo(this.melodySequence[0].time);
-          }
+          let earliest = Infinity;
+          const allDevs = [...this.rootDevices, this.pcDevice];
+          allDevs.forEach(d => {
+            if (d.sequence && d.sequence.length > 0 && d.sequence[0].time < earliest) {
+              earliest = d.sequence[0].time;
+            }
+          });
+          if (earliest < Infinity) this.seekTo(earliest);
         });
 
-        document.getElementById('btnLoop').addEventListener('click', (e) => {
+        document.getElementById('btnLoop').addEventListener('click', () => {
           this.isLooping = !this.isLooping;
           const btn = document.getElementById('btnLoop');
           if (this.isLooping) {
@@ -1200,17 +1291,452 @@
           document.getElementById('logCountBadge').textContent = '0 packets';
         });
 
-        // Window resize for canvas
         window.addEventListener('resize', () => this.resizeCanvas());
+      }
+
+      async pairNewRootRobot() {
+        if (!navigator.bluetooth) {
+          throw new Error('Web Bluetooth API がサポートされていません。');
+        }
+
+        app.log('BLE', 'スキャン開始 (iRobot Rootを探しています)...');
+        
+        let bleDevice;
+        try {
+          bleDevice = await navigator.bluetooth.requestDevice({
+            filters: [
+              { services: [ROOT_BLE.IDENTIFIER_SERVICE] },
+              { namePrefix: 'Root' }
+            ],
+            optionalServices: [
+              ROOT_BLE.IDENTIFIER_SERVICE,
+              ROOT_BLE.UART_SERVICE
+            ]
+          });
+        } catch (filterErr) {
+          if (filterErr.name === 'NotFoundError') {
+            throw new Error('デバイス選択がキャンセルされました。');
+          }
+          bleDevice = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: [
+              ROOT_BLE.IDENTIFIER_SERVICE,
+              ROOT_BLE.UART_SERVICE
+            ]
+          });
+        }
+
+        // Check if already paired
+        const alreadyConnected = this.rootDevices.some(d => d.device.id === bleDevice.id);
+        if (alreadyConnected) {
+          alert('このRootロボットは既に接続されています。');
+          return;
+        }
+
+        const slotIndex = this.rootDevices.length;
+        const newRoot = new RootRobotDevice(slotIndex, bleDevice);
+        await newRoot.connect();
+
+        this.rootDevices.push(newRoot);
+        this.onDeviceListChanged();
+      }
+
+      onDeviceListChanged() {
+        this.updateHeaderDeviceBadge();
+        this.renderDeviceCards();
+        this.autoOptimizeEnsemble();
+      }
+
+      updateHeaderDeviceBadge() {
+        const count = this.rootDevices.filter(d => d.isConnected).length;
+        const dot = document.getElementById('bleStatusDot');
+        const text = document.getElementById('deviceCountText');
+        const disconnectAll = document.getElementById('btnDisconnectAll');
+
+        if (count > 0) {
+          dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 pulse-animation';
+          text.className = 'text-emerald-400 font-semibold';
+          text.textContent = `Root: ${count}台接続中 (合奏モード)`;
+          disconnectAll.disabled = false;
+        } else {
+          dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-500';
+          text.className = 'text-slate-300';
+          text.textContent = 'Root: 0台接続';
+          disconnectAll.disabled = true;
+        }
+      }
+
+      // Render Dynamic Root Cards
+      renderDeviceCards() {
+        const list = document.getElementById('deviceCardsList');
+        const noRootMsg = document.getElementById('noRootMessage');
+
+        // Remove old robot cards (keep pcAudioCard)
+        const oldRobotCards = list.querySelectorAll('.robot-device-card');
+        oldRobotCards.forEach(c => c.remove());
+
+        if (this.rootDevices.length === 0) {
+          noRootMsg.classList.remove('hidden');
+        } else {
+          noRootMsg.classList.add('hidden');
+        }
+
+        this.rootDevices.forEach((dev, idx) => {
+          const card = document.createElement('div');
+          card.className = `robot-device-card bg-slate-800/80 border ${dev.theme.badgeClass.split(' ').slice(2).join(' ')} rounded-xl p-3.5 flex flex-col justify-between space-y-3 relative`;
+          card.setAttribute('data-device-id', dev.device.id);
+
+          card.innerHTML = `
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0" style="background-color: ${dev.theme.hex}25; color: ${dev.theme.hex}; border: 1px solid ${dev.theme.hex}40;">
+                  #${idx + 1}
+                </div>
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-xs font-bold text-white truncate max-w-[110px]" title="${dev.name}">${dev.name}</span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  </div>
+                  <div class="active-note-label text-[11px] font-mono text-slate-400">待機中</div>
+                </div>
+              </div>
+              
+              <!-- Quick Actions -->
+              <div class="flex items-center gap-1">
+                <button class="btn-dev-beep p-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 transition" title="テスト発音 (440Hz)">
+                  <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+                </button>
+                <button class="btn-dev-led p-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 transition" title="LEDテスト">
+                  <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                </button>
+                <button class="btn-dev-disconnect p-1 rounded bg-slate-700 hover:bg-red-900/80 hover:text-red-300 text-slate-400 transition" title="切断">
+                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Part Selector -->
+            <div class="space-y-1 text-xs">
+              <div class="flex items-center justify-between text-[11px] text-slate-400">
+                <span>担当パート:</span>
+                <span class="auto-role-badge text-[10px] font-semibold" style="color: ${dev.theme.hex};">${dev.autoResolvedRole || '自動'}</span>
+              </div>
+              <select class="dev-part-select w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:outline-none" style="focus:border-color: ${dev.theme.hex};">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+            <!-- Mute Row -->
+            <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-700/50 text-xs">
+              <span class="text-[10px] text-slate-400 font-mono">Slot ${idx + 1} (${dev.theme.name})</span>
+              <button class="btn-dev-mute px-2 py-1 rounded bg-slate-700/80 hover:bg-slate-700 text-[11px] text-slate-300 transition">
+                ${dev.isMuted ? '消音中' : '消音'}
+              </button>
+            </div>
+          `;
+
+          // Event listeners
+          card.querySelector('.btn-dev-beep').addEventListener('click', () => {
+            dev.playNote(440, 200);
+          });
+          card.querySelector('.btn-dev-led').addEventListener('click', () => {
+            dev.setLights(3, dev.theme.rgb[0], dev.theme.rgb[1], dev.theme.rgb[2]);
+          });
+          card.querySelector('.btn-dev-disconnect').addEventListener('click', async () => {
+            await dev.disconnect();
+            this.rootDevices = this.rootDevices.filter(d => d.device.id !== dev.device.id);
+            this.onDeviceListChanged();
+          });
+          card.querySelector('.btn-dev-mute').addEventListener('click', (e) => {
+            dev.isMuted = !dev.isMuted;
+            if (dev.isMuted) {
+              e.target.classList.add('bg-red-600', 'text-white');
+              e.target.textContent = '消音中';
+              dev.stopSound();
+            } else {
+              e.target.classList.remove('bg-red-600', 'text-white');
+              e.target.textContent = '消音';
+            }
+          });
+          card.querySelector('.dev-part-select').addEventListener('change', (e) => {
+            dev.assignedPart = e.target.value;
+            this.recalculateEnsembleSequences();
+          });
+
+          list.appendChild(card);
+        });
+
+        this.updatePartSelectDropdowns();
+        lucide.createIcons();
+      }
+
+      // Populate options in Part selectors for each device
+      updatePartSelectDropdowns() {
+        const createOptions = (currentVal) => {
+          let html = `<option value="auto" ${currentVal === 'auto' ? 'selected' : ''}>⚡ 自動最適割り当て (Auto)</option>`;
+          html += `<option value="all" ${currentVal === 'all' ? 'selected' : ''}>全トラック統合 (All Merged)</option>`;
+          
+          if (this.parsedTracks && this.parsedTracks.length > 1) {
+            html += `<optgroup label="個別トラック">`;
+            this.parsedTracks.forEach(t => {
+              html += `<option value="track_${t.index}" ${currentVal === `track_${t.index}` ? 'selected' : ''}>[Track ${t.index + 1}] ${t.name} (${t.notes.length}音)</option>`;
+            });
+            html += `</optgroup>`;
+          }
+
+          html += `<optgroup label="和音分散ボイス">`;
+          html += `<option value="voice_0" ${currentVal === 'voice_0' ? 'selected' : ''}>[Voice 1] 最高音 (Top Melody)</option>`;
+          html += `<option value="voice_1" ${currentVal === 'voice_1' ? 'selected' : ''}>[Voice 2] 中音 (Harmony)</option>`;
+          html += `<option value="voice_2" ${currentVal === 'voice_2' ? 'selected' : ''}>[Voice 3] 低音 (Bass Voice)</option>`;
+          html += `</optgroup>`;
+
+          return html;
+        };
+
+        // PC dropdown
+        const pcSelect = document.getElementById('pcPartSelect');
+        pcSelect.innerHTML = createOptions(this.pcDevice.assignedPart);
+
+        // Root dropdowns
+        const rootCards = document.querySelectorAll('.robot-device-card');
+        rootCards.forEach((card, idx) => {
+          const dev = this.rootDevices[idx];
+          if (dev) {
+            const select = card.querySelector('.dev-part-select');
+            select.innerHTML = createOptions(dev.assignedPart);
+          }
+        });
+      }
+
+      // Intelligent Track & Role Analyzer
+      analyzeTrackRoles() {
+        if (!this.parsedTracks || this.parsedTracks.length === 0) return [];
+
+        return this.parsedTracks.map(t => {
+          const notes = t.notes;
+          let sumPitch = 0, minPitch = 127, maxPitch = 0;
+          notes.forEach(n => {
+            sumPitch += n.midi;
+            if (n.midi < minPitch) minPitch = n.midi;
+            if (n.midi > maxPitch) maxPitch = n.midi;
+          });
+          const avgPitch = sumPitch / notes.length;
+
+          let role = 'harmony';
+          let roleLabel = '和音・伴奏';
+
+          if (avgPitch < 52) {
+            role = 'bass';
+            roleLabel = '低音・ベース';
+          } else if (avgPitch >= 75) {
+            role = 'treble';
+            roleLabel = '高音・装飾';
+          } else if (avgPitch >= 60 && notes.length > 30) {
+            role = 'melody';
+            roleLabel = '主旋律・メロディ';
+          }
+
+          return {
+            trackIndex: t.index,
+            name: t.name,
+            noteCount: notes.length,
+            avgPitch,
+            minPitch,
+            maxPitch,
+            role,
+            roleLabel
+          };
+        });
+      }
+
+      // Auto-Optimize Ensemble (Assigns distinct parts to Roots and PC)
+      autoOptimizeEnsemble() {
+        const analyzed = this.analyzeTrackRoles();
+        const activeRoots = this.rootDevices.filter(d => d.isConnected);
+        const pcActive = this.pcDevice.isEnabled;
+
+        // Reset auto roles
+        activeRoots.forEach(d => d.autoResolvedRole = '');
+        this.pcDevice.autoResolvedRole = '';
+
+        if (analyzed.length > 1) {
+          // Multi-track MIDI: Sort tracks by priority: Melody -> Harmony -> Bass -> Treble
+          const sorted = [...analyzed].sort((a, b) => {
+            const priority = { melody: 1, harmony: 2, bass: 3, treble: 4 };
+            return (priority[a.role] || 99) - (priority[b.role] || 99);
+          });
+
+          let trackPtr = 0;
+          const assignedTrackIndices = new Set();
+
+          // 1. Assign Roots
+          activeRoots.forEach((root, idx) => {
+            if (root.assignedPart === 'auto') {
+              if (trackPtr < sorted.length) {
+                const target = sorted[trackPtr++];
+                root.autoResolvedTrackIndex = target.trackIndex;
+                root.autoResolvedRole = `[Tr ${target.trackIndex + 1}] ${target.roleLabel}`;
+                assignedTrackIndices.add(target.trackIndex);
+              } else {
+                // Wrap around
+                const target = sorted[idx % sorted.length];
+                root.autoResolvedTrackIndex = target.trackIndex;
+                root.autoResolvedRole = `[Tr ${target.trackIndex + 1}] ${target.roleLabel}`;
+              }
+            }
+          });
+
+          // 2. Assign PC (Give PC a distinct, unassigned track like accompaniment or bass!)
+          if (this.pcDevice.assignedPart === 'auto') {
+            const remaining = sorted.find(t => !assignedTrackIndices.has(t.trackIndex));
+            if (remaining) {
+              this.pcDevice.autoResolvedTrackIndex = remaining.trackIndex;
+              this.pcDevice.autoResolvedRole = `[Tr ${remaining.trackIndex + 1}] ${remaining.roleLabel}`;
+            } else {
+              // If all assigned, assign harmony/bass or first non-melody track
+              const nonMelody = sorted.find(t => t.role !== 'melody') || sorted[0];
+              this.pcDevice.autoResolvedTrackIndex = nonMelody.trackIndex;
+              this.pcDevice.autoResolvedRole = `[Tr ${nonMelody.trackIndex + 1}] ${nonMelody.roleLabel} (伴奏)`;
+            }
+          }
+        } else {
+          // Single-track / Chord MIDI: Split voices
+          activeRoots.forEach((root, idx) => {
+            if (root.assignedPart === 'auto') {
+              root.autoResolvedVoice = idx;
+              root.autoResolvedRole = `Voice ${idx + 1} (${idx === 0 ? '最高音' : idx === 1 ? '中音' : '低音'})`;
+            }
+          });
+
+          if (this.pcDevice.assignedPart === 'auto') {
+            if (activeRoots.length === 0) {
+              this.pcDevice.autoResolvedVoice = 0;
+              this.pcDevice.autoResolvedRole = '全ノート (Full)';
+            } else {
+              // PC plays bottom voice or full chords
+              this.pcDevice.autoResolvedVoice = activeRoots.length;
+              this.pcDevice.autoResolvedRole = `Voice ${activeRoots.length + 1} (低音・和音補強)`;
+            }
+          }
+        }
+
+        this.recalculateEnsembleSequences();
+        this.updateEnsembleSummaryUI();
+      }
+
+      // Build note sequences for each device
+      recalculateEnsembleSequences() {
+        if (!this.parsedTracks || this.parsedTracks.length === 0) return;
+
+        let allNotesMerged = [];
+        this.parsedTracks.forEach(t => {
+          allNotesMerged = allNotesMerged.concat(t.notes);
+        });
+
+        // Function to extract sequence for a given device assignment
+        const getSequenceForAssignment = (assignedPart, autoTrackIdx, autoVoiceIdx) => {
+          if (assignedPart === 'all') {
+            return monophonizeNotes(allNotesMerged, 'highest', this.gateRatio, this.transpose);
+          } else if (assignedPart.startsWith('track_')) {
+            const trIdx = parseInt(assignedPart.replace('track_', ''), 10);
+            const tr = this.parsedTracks.find(t => t.index === trIdx);
+            return tr ? monophonizeNotes(tr.notes, 'highest', this.gateRatio, this.transpose) : [];
+          } else if (assignedPart.startsWith('voice_')) {
+            const vRank = parseInt(assignedPart.replace('voice_', ''), 10);
+            return extractVoiceFromNotes(allNotesMerged, vRank, 3, this.gateRatio, this.transpose);
+          } else {
+            // Auto
+            if (this.parsedTracks.length > 1 && autoTrackIdx !== undefined) {
+              const tr = this.parsedTracks.find(t => t.index === autoTrackIdx);
+              return tr ? monophonizeNotes(tr.notes, 'highest', this.gateRatio, this.transpose) : [];
+            } else {
+              const vRank = autoVoiceIdx || 0;
+              return extractVoiceFromNotes(allNotesMerged, vRank, Math.max(3, this.rootDevices.length + 1), this.gateRatio, this.transpose);
+            }
+          }
+        };
+
+        // 1. Root sequences
+        this.rootDevices.forEach(root => {
+          root.sequence = getSequenceForAssignment(root.assignedPart, root.autoResolvedTrackIndex, root.autoResolvedVoice);
+          root.nextIndex = 0;
+        });
+
+        // 2. PC sequence
+        this.pcDevice.sequence = getSequenceForAssignment(this.pcDevice.assignedPart, this.pcDevice.autoResolvedTrackIndex, this.pcDevice.autoResolvedVoice);
+        this.pcDevice.nextIndex = 0;
+
+        // Calculate overall duration
+        let maxDur = 0;
+        [...this.rootDevices, this.pcDevice].forEach(dev => {
+          if (dev.sequence && dev.sequence.length > 0) {
+            const last = dev.sequence[dev.sequence.length - 1];
+            if (last.time + last.duration > maxDur) maxDur = last.time + last.duration;
+          }
+        });
+        this.totalDuration = maxDur;
+
+        document.getElementById('totalTimeDisplay').textContent = formatTime(this.totalDuration);
+        document.getElementById('seekSlider').max = Math.max(1, this.totalDuration);
+
+        // Check if first note starts > 1.5s
+        let earliestNote = Infinity;
+        [...this.rootDevices, this.pcDevice].forEach(dev => {
+          if (dev.sequence && dev.sequence.length > 0 && dev.sequence[0].time < earliestNote) {
+            earliestNote = dev.sequence[0].time;
+          }
+        });
+        const jumpBtn = document.getElementById('btnJumpFirstNote');
+        if (earliestNote > 1.5 && earliestNote < Infinity) {
+          jumpBtn.classList.remove('hidden');
+          jumpBtn.querySelector('span').textContent = `最初の音へジャンプ (${formatTime(earliestNote)})`;
+        } else {
+          jumpBtn.classList.add('hidden');
+        }
+
+        this.stop();
+        this.drawPianoRoll();
+      }
+
+      updateEnsembleSummaryUI() {
+        const summaryList = document.getElementById('allocationSummaryList');
+        const roleText = document.getElementById('allocationStrategyText');
+        summaryList.innerHTML = '';
+
+        const activeRoots = this.rootDevices.filter(d => d.isConnected);
+        roleText.textContent = `${activeRoots.length}台のRoot ＋ PC音源で合奏中`;
+
+        // PC pill
+        if (this.pcDevice.isEnabled) {
+          const pcPill = document.createElement('span');
+          pcPill.className = `px-2 py-0.5 rounded text-[11px] font-medium border ${PC_THEME.badgeClass}`;
+          pcPill.textContent = `💻 PC: ${this.pcDevice.autoResolvedRole || this.pcDevice.assignedPart}`;
+          summaryList.appendChild(pcPill);
+          document.getElementById('pcAssignedRoleBadge').textContent = this.pcDevice.autoResolvedRole || '割り当て済';
+        }
+
+        // Root pills
+        activeRoots.forEach((root, idx) => {
+          const pill = document.createElement('span');
+          pill.className = `px-2 py-0.5 rounded text-[11px] font-medium border ${root.theme.badgeClass}`;
+          pill.textContent = `🤖 #${idx + 1} (${root.name}): ${root.autoResolvedRole || root.assignedPart}`;
+          summaryList.appendChild(pill);
+
+          // Update card badge
+          const card = document.querySelector(`.robot-device-card[data-device-id="${root.device.id}"]`);
+          if (card) {
+            const badge = card.querySelector('.auto-role-badge');
+            if (badge) badge.textContent = root.autoResolvedRole || '割り当て済';
+          }
+        });
       }
 
       setTranspose(val) {
         this.transpose = Math.min(24, Math.max(-24, val));
         document.getElementById('transposeDisplay').textContent = (this.transpose > 0 ? '+' : '') + this.transpose;
-        this.processMidiData();
+        this.recalculateEnsembleSequences();
       }
 
-      // Load a preset song
       loadPreset(key) {
         const preset = PRESETS[key];
         if (!preset) return;
@@ -1236,16 +1762,11 @@
         document.getElementById('statTracksCount').textContent = '1';
         document.getElementById('statBpm').textContent = `${preset.bpm}`;
 
-        // Populate track select
-        const trackSelect = document.getElementById('trackSelect');
-        trackSelect.innerHTML = `<option value="all">全トラック (${preset.notes.length} 音)</option>`;
-        this.selectedTrack = 'all';
-
-        this.processMidiData();
+        this.updatePartSelectDropdowns();
+        this.autoOptimizeEnsemble();
         this.log('INFO', `プリセット読み込み: ${preset.title}`);
       }
 
-      // Handle user uploaded MIDI file
       async handleMidiFile(file) {
         try {
           this.log('INFO', `MIDIファイル解析中: ${file.name} (${Math.round(file.size / 1024)} KB)...`);
@@ -1255,17 +1776,12 @@
             throw new Error('@tonejs/midi ライブラリがロードされていません。');
           }
 
-          // @tonejs/midi expects a Uint8Array byte buffer
           const uint8 = new Uint8Array(arrayBuffer);
           let midi;
           try {
             midi = new Midi(uint8);
           } catch (err1) {
-            try {
-              midi = new Midi(arrayBuffer);
-            } catch (err2) {
-              throw new Error('MIDIファイルの構文解析に失敗しました: ' + (err1.message || err1));
-            }
+            midi = new Midi(arrayBuffer);
           }
           this.rawMidi = midi;
 
@@ -1278,16 +1794,11 @@
           document.getElementById('statTracksCount').textContent = `${midi.tracks.length}`;
           document.getElementById('statBpm').textContent = `${bpm}`;
 
-          // Parse and populate track selector with robust note copying
-          const trackSelect = document.getElementById('trackSelect');
-          trackSelect.innerHTML = '';
-
           let totalNotes = 0;
           this.parsedTracks = [];
 
           midi.tracks.forEach((track, idx) => {
             if (track.notes && track.notes.length > 0) {
-              // Extract all note properties explicitly to preserve them from class getters
               const cleanNotes = track.notes.map(n => ({
                 time: Number(n.time) >= 0 ? Number(n.time) : 0,
                 duration: Math.max(0.01, Number(n.duration) || 0.1),
@@ -1316,29 +1827,12 @@
           document.getElementById('statNotesCount').textContent = `${totalNotes} 音`;
 
           if (this.parsedTracks.length === 0) {
-            trackSelect.innerHTML = '<option value="none">ノートが見つかりませんでした</option>';
             alert('このMIDIファイルにはノートイベントが見つかりませんでした。');
             return;
           }
 
-          // Add 'All Tracks' option
-          const optAll = document.createElement('option');
-          optAll.value = 'all';
-          optAll.textContent = `全トラック統合 (計 ${totalNotes} 音)`;
-          trackSelect.appendChild(optAll);
-
-          // Add individual tracks
-          this.parsedTracks.forEach((t) => {
-            const opt = document.createElement('option');
-            opt.value = t.index;
-            opt.textContent = `[Track ${t.index + 1}] ${t.name} (${t.notes.length} 音)`;
-            trackSelect.appendChild(opt);
-          });
-
-          this.selectedTrack = 'all';
-          trackSelect.value = 'all';
-
-          this.processMidiData();
+          this.updatePartSelectDropdowns();
+          this.autoOptimizeEnsemble();
           this.log('INFO', `MIDI読み込み完了: ${title} (${this.parsedTracks.length} トラック, ${totalNotes} 音)`);
 
         } catch (err) {
@@ -1348,56 +1842,11 @@
         }
       }
 
-      // Convert loaded track(s) into monophonic sequence
-      processMidiData() {
-        if (!this.parsedTracks || this.parsedTracks.length === 0) return;
-
-        let rawNotes = [];
-        if (this.selectedTrack === 'all') {
-          this.parsedTracks.forEach(t => {
-            rawNotes = rawNotes.concat(t.notes);
-          });
-        } else {
-          const trackIndex = parseInt(this.selectedTrack, 10);
-          const tr = this.parsedTracks.find(t => t.index === trackIndex);
-          if (tr) rawNotes = tr.notes;
-        }
-
-        // Run monophonic converter
-        this.melodySequence = monophonizeNotes(rawNotes, this.polyStrategy, this.gateRatio, this.transpose);
-        
-        if (this.melodySequence.length > 0) {
-          const last = this.melodySequence[this.melodySequence.length - 1];
-          this.totalDuration = last.time + last.duration;
-
-          // Check if first note starts with silence > 1.5s
-          const firstNote = this.melodySequence[0];
-          const jumpBtn = document.getElementById('btnJumpFirstNote');
-          if (firstNote.time > 1.5) {
-            jumpBtn.classList.remove('hidden');
-            jumpBtn.querySelector('span').textContent = `最初の音へジャンプ (${formatTime(firstNote.time)})`;
-          } else {
-            jumpBtn.classList.add('hidden');
-          }
-        } else {
-          this.totalDuration = 0;
-          document.getElementById('btnJumpFirstNote').classList.add('hidden');
-        }
-
-        document.getElementById('totalTimeDisplay').textContent = formatTime(this.totalDuration);
-        document.getElementById('seekSlider').max = Math.max(1, this.totalDuration);
-        document.getElementById('statNotesCount').textContent = `${this.melodySequence.length} 音 (単音)`;
-
-        // Reset playback position
-        this.stop();
-        this.drawPianoRoll();
-      }
-
       // ==========================================
-      // Playback Engine Implementation
+      // Playback Engine for Multi-Device Ensemble
       // ==========================================
       play() {
-        if (this.melodySequence.length === 0) return;
+        if (this.totalDuration === 0) return;
         this.synth.init();
 
         this.isPlaying = true;
@@ -1412,7 +1861,7 @@
         this.playbackStartTime = performance.now() - (this.currentPlayTime * 1000 / this.speed);
         
         this.engineLoop();
-        this.log('INFO', `再生開始: 位置 ${formatTime(this.currentPlayTime)}`);
+        this.log('INFO', `合奏開始: 位置 ${formatTime(this.currentPlayTime)}`);
       }
 
       pause() {
@@ -1422,16 +1871,17 @@
 
         if (this.animFrameId) cancelAnimationFrame(this.animFrameId);
 
-        this.ble.stopSound();
+        // Stop all robots & PC
+        this.rootDevices.forEach(d => d.stopSound());
         this.synth.stopTone();
 
         document.getElementById('btnPlay').classList.remove('bg-amber-600', 'hover:bg-amber-500');
         document.getElementById('btnPlay').classList.add('bg-emerald-600', 'hover:bg-emerald-500');
         document.getElementById('btnPlayText').textContent = '再開';
 
-        this.resetActiveNoteBadge();
+        this.resetActiveNoteBadges();
         this.drawPianoRoll();
-        this.log('INFO', `一時停止: 位置 ${formatTime(this.currentPlayTime)}`);
+        this.log('INFO', `合奏一時停止: 位置 ${formatTime(this.currentPlayTime)}`);
       }
 
       stop() {
@@ -1440,26 +1890,29 @@
 
         if (this.animFrameId) cancelAnimationFrame(this.animFrameId);
 
-        this.ble.stopSound();
-        this.synth.stopTone();
+        this.rootDevices.forEach(d => {
+          d.stopSound();
+          if (d.isConnected) d.setLights(0, 0, 0, 0);
+          d.nextIndex = 0;
+          d.currentNote = null;
+        });
 
-        if (this.ble.isConnected) {
-          this.ble.setLights(0, 0, 0, 0);
-        }
+        this.synth.stopTone();
+        this.pcDevice.nextIndex = 0;
+        this.pcDevice.currentNote = null;
 
         this.currentPlayTime = 0;
-        this.nextNoteIndex = 0;
 
         document.getElementById('btnPlay').classList.remove('bg-amber-600', 'hover:bg-amber-500');
         document.getElementById('btnPlay').classList.add('bg-emerald-600', 'hover:bg-emerald-500');
-        document.getElementById('btnPlayText').textContent = '再生';
+        document.getElementById('btnPlayText').textContent = '合奏を開始';
         document.getElementById('btnPause').disabled = true;
         document.getElementById('btnStop').disabled = true;
 
         document.getElementById('currentTimeDisplay').textContent = formatTime(0);
         document.getElementById('seekSlider').value = 0;
 
-        this.resetActiveNoteBadge();
+        this.resetActiveNoteBadges();
         this.drawPianoRoll();
       }
 
@@ -1468,13 +1921,18 @@
         document.getElementById('currentTimeDisplay').textContent = formatTime(this.currentPlayTime);
         document.getElementById('seekSlider').value = this.currentPlayTime;
 
-        // Find next note index
-        this.nextNoteIndex = this.melodySequence.findIndex(n => (n.time + n.duration) > this.currentPlayTime);
-        if (this.nextNoteIndex === -1) this.nextNoteIndex = this.melodySequence.length;
+        // Reset indexes
+        this.rootDevices.forEach(d => {
+          d.nextIndex = d.sequence.findIndex(n => (n.time + n.duration) > this.currentPlayTime);
+          if (d.nextIndex === -1) d.nextIndex = d.sequence.length;
+          d.stopSound();
+        });
+
+        this.pcDevice.nextIndex = this.pcDevice.sequence.findIndex(n => (n.time + n.duration) > this.currentPlayTime);
+        if (this.pcDevice.nextIndex === -1) this.pcDevice.nextIndex = this.pcDevice.sequence.length;
+        this.synth.stopTone();
 
         if (this.isPlaying) {
-          this.ble.stopSound();
-          this.synth.stopTone();
           this.playbackStartTime = performance.now() - (this.currentPlayTime * 1000 / this.speed);
         }
 
@@ -1487,7 +1945,6 @@
         const now = performance.now();
         this.currentPlayTime = ((now - this.playbackStartTime) / 1000) * this.speed;
 
-        // Update timecode and slider
         document.getElementById('currentTimeDisplay').textContent = formatTime(this.currentPlayTime);
         document.getElementById('seekSlider').value = this.currentPlayTime;
 
@@ -1501,99 +1958,120 @@
           }
         }
 
-        // Trigger notes
-        while (this.nextNoteIndex < this.melodySequence.length) {
-          const note = this.melodySequence[this.nextNoteIndex];
-          if (this.currentPlayTime >= note.time) {
-            this.triggerNote(note);
-            this.nextNoteIndex++;
-          } else {
-            break;
+        // 1. Trigger notes for each Root robot
+        this.rootDevices.forEach(dev => {
+          if (!dev.isConnected) return;
+          while (dev.nextIndex < dev.sequence.length) {
+            const note = dev.sequence[dev.nextIndex];
+            if (this.currentPlayTime >= note.time) {
+              this.triggerRootNote(dev, note);
+              dev.nextIndex++;
+            } else {
+              break;
+            }
+          }
+        });
+
+        // 2. Trigger notes for PC Audio Device
+        if (this.pcDevice.isEnabled && !this.pcDevice.isMuted) {
+          while (this.pcDevice.nextIndex < this.pcDevice.sequence.length) {
+            const note = this.pcDevice.sequence[this.pcDevice.nextIndex];
+            if (this.currentPlayTime >= note.time) {
+              this.triggerPcNote(note);
+              this.pcDevice.nextIndex++;
+            } else {
+              break;
+            }
           }
         }
 
-        // Update active note display & visualizer
-        this.updateActiveNoteDisplay();
+        // Update active notes & canvas
+        this.updateActiveNoteBadges();
         this.drawPianoRoll();
 
         this.animFrameId = requestAnimationFrame(() => this.engineLoop());
       }
 
-      triggerNote(note) {
+      triggerRootNote(dev, note) {
         const actualDurationSec = note.playDuration / this.speed;
         const actualDurationMs = Math.round(actualDurationSec * 1000);
         const safeFreq = Math.max(30, Math.min(8000, note.freq || 440));
 
-        // 1. Send BLE packet to Root Robot
-        if (this.ble.isConnected) {
-          this.ble.playNote(safeFreq, actualDurationMs);
+        dev.currentNote = note;
+        dev.playNote(safeFreq, actualDurationMs);
 
-          // LED flash sync
-          if (this.isLedSync) {
-            const hue = ((note.midi - 36) * 7) % 360;
-            const rgb = this.hslToRgb(hue / 360, 1.0, 0.5);
-            this.ble.setLights(1, rgb.r, rgb.g, rgb.b);
-          }
-        }
-
-        // 2. Play Web Audio synthesizer preview
-        if (this.synth.isEnabled) {
-          this.synth.playTone(safeFreq, actualDurationSec);
+        // Flash slot color LED
+        if (this.isLedSync) {
+          dev.setLights(1, dev.theme.rgb[0], dev.theme.rgb[1], dev.theme.rgb[2]);
         }
       }
 
-      updateActiveNoteDisplay() {
-        const cur = this.melodySequence.find(n => this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration));
-        if (cur) {
-          document.getElementById('activeNoteName').textContent = cur.name;
-          document.getElementById('activeNoteFreq').textContent = `${cur.freq} Hz`;
-          document.getElementById('activeNoteBadge').classList.add('border-emerald-500', 'bg-emerald-950/30');
+      triggerPcNote(note) {
+        const actualDurationSec = note.playDuration / this.speed;
+        const safeFreq = Math.max(30, Math.min(8000, note.freq || 440));
+        this.pcDevice.currentNote = note;
+        this.synth.playTone(safeFreq, actualDurationSec, this.pcDevice.volume);
+      }
+
+      updateActiveNoteBadges() {
+        // PC
+        const pcCur = this.pcDevice.sequence.find(n => this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration));
+        const pcLabel = document.getElementById('pcActiveNoteDisplay');
+        if (pcCur && this.pcDevice.isEnabled) {
+          pcLabel.textContent = `発音中: ${pcCur.name} (${pcCur.freq}Hz)`;
+          pcLabel.className = 'text-[11px] font-mono text-sky-400 font-bold';
         } else {
-          this.resetActiveNoteBadge();
+          pcLabel.textContent = '待機中';
+          pcLabel.className = 'text-[11px] font-mono text-slate-500';
+        }
+
+        // Roots
+        this.rootDevices.forEach(dev => {
+          const card = document.querySelector(`.robot-device-card[data-device-id="${dev.device.id}"]`);
+          if (!card) return;
+          const label = card.querySelector('.active-note-label');
+          const cur = dev.sequence.find(n => this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration));
+          if (cur && dev.isConnected) {
+            label.textContent = `発音中: ${cur.name} (${cur.freq}Hz)`;
+            label.style.color = dev.theme.hex;
+            label.className = 'active-note-label text-[11px] font-mono font-bold';
+          } else {
+            label.textContent = '待機中';
+            label.style.color = '';
+            label.className = 'active-note-label text-[11px] font-mono text-slate-500';
+          }
+        });
+
+        // Top overall active note
+        const anyActive = [...this.rootDevices, this.pcDevice].map(d => d.currentNote).filter(Boolean)[0];
+        if (anyActive) {
+          document.getElementById('activeNoteName').textContent = anyActive.name;
+          document.getElementById('activeNoteFreq').textContent = `${anyActive.freq} Hz`;
+        } else {
+          document.getElementById('activeNoteName').textContent = '---';
+          document.getElementById('activeNoteFreq').textContent = '0 Hz';
         }
       }
 
-      resetActiveNoteBadge() {
+      resetActiveNoteBadges() {
         document.getElementById('activeNoteName').textContent = '---';
         document.getElementById('activeNoteFreq').textContent = '0 Hz';
-        document.getElementById('activeNoteBadge').classList.remove('border-emerald-500', 'bg-emerald-950/30');
-      }
-
-      hslToRgb(h, s, l) {
-        let r, g, b;
-        if (s === 0) {
-          r = g = b = l;
-        } else {
-          const hue2rgb = (p, q, t) => {
-            if (t < 0) t += 1;
-            if (t > 1) t -= 1;
-            if (t < 1/6) return p + (q - p) * 6 * t;
-            if (t < 1/2) return q;
-            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-            return p;
-          };
-          const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-          const p = 2 * l - q;
-          r = hue2rgb(p, q, h + 1/3);
-          g = hue2rgb(p, q, h);
-          b = hue2rgb(p, q, h - 1/3);
-        }
-        return {
-          r: Math.round(r * 255),
-          g: Math.round(g * 255),
-          b: Math.round(b * 255)
-        };
+        document.getElementById('pcActiveNoteDisplay').textContent = '待機中';
+        document.getElementById('pcActiveNoteDisplay').className = 'text-[11px] font-mono text-slate-500';
+        document.querySelectorAll('.active-note-label').forEach(el => {
+          el.textContent = '待機中';
+          el.className = 'active-note-label text-[11px] font-mono text-slate-500';
+        });
       }
 
       // ==========================================
-      // 8. Visualizer / Piano Roll Canvas
+      // 8. Multi-color Ensemble Piano Roll Canvas
       // ==========================================
       initCanvas() {
         this.canvas = document.getElementById('pianoRollCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.resizeCanvas();
 
-        // Click to seek on piano roll
         this.canvas.addEventListener('click', (e) => {
           if (this.totalDuration <= 0) return;
           const rect = this.canvas.getBoundingClientRect();
@@ -1624,11 +2102,11 @@
         const ctx = this.ctx;
 
         // Background
-        ctx.fillStyle = '#020617'; // slate-950
+        ctx.fillStyle = '#020617';
         ctx.fillRect(0, 0, w, h);
 
-        // Draw horizontal pitch guide lines
-        ctx.strokeStyle = 'rgba(51, 65, 85, 0.4)'; // slate-700
+        // Guide lines
+        ctx.strokeStyle = 'rgba(51, 65, 85, 0.35)';
         ctx.lineWidth = 1;
         const numPitchLines = 12;
         for (let i = 0; i <= numPitchLines; i++) {
@@ -1639,58 +2117,80 @@
           ctx.stroke();
         }
 
-        if (this.melodySequence.length === 0 || this.totalDuration <= 0) {
+        // Gather all active device layers
+        const layers = [];
+        if (this.pcDevice.isEnabled && this.pcDevice.sequence.length > 0) {
+          layers.push({ name: 'PC Synth', color: PC_THEME.hex, sequence: this.pcDevice.sequence });
+        }
+        this.rootDevices.forEach(d => {
+          if (d.isConnected && d.sequence.length > 0) {
+            layers.push({ name: d.name, color: d.theme.hex, sequence: d.sequence });
+          }
+        });
+
+        // Update Legend
+        const legend = document.getElementById('pianoRollLegend');
+        legend.innerHTML = '';
+        layers.forEach(l => {
+          const span = document.createElement('span');
+          span.className = 'flex items-center gap-1 text-[10px] font-medium';
+          span.innerHTML = `<span class="w-2 h-2 rounded-full" style="background-color: ${l.color}"></span><span class="text-slate-300">${l.name}</span>`;
+          legend.appendChild(span);
+        });
+
+        if (layers.length === 0 || this.totalDuration <= 0) {
           ctx.fillStyle = '#64748b';
           ctx.font = '12px Inter, sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('楽曲データを読み込むとノートが表示されます', w / 2, h / 2);
+          ctx.fillText('楽曲データを読み込むと各パートのノートが表示されます', w / 2, h / 2);
           return;
         }
 
-        // Find min and max MIDI notes
+        // Pitch Range
         let minMidi = 127, maxMidi = 0;
-        this.melodySequence.forEach(n => {
-          if (n.midi < minMidi) minMidi = n.midi;
-          if (n.midi > maxMidi) maxMidi = n.midi;
+        layers.forEach(l => {
+          l.sequence.forEach(n => {
+            if (n.midi < minMidi) minMidi = n.midi;
+            if (n.midi > maxMidi) maxMidi = n.midi;
+          });
         });
         minMidi = Math.max(21, minMidi - 2);
         maxMidi = Math.min(108, maxMidi + 2);
         const midiRange = Math.max(12, maxMidi - minMidi);
 
-        // Draw note rectangles
-        this.melodySequence.forEach(n => {
-          const x = (n.time / this.totalDuration) * w;
-          const noteWidth = Math.max(2, (n.duration / this.totalDuration) * w - 1);
-          const normPitch = (n.midi - minMidi) / midiRange;
-          const y = h - (normPitch * (h - 20)) - 15;
-          const noteHeight = Math.max(5, Math.min(14, (h / midiRange) * 0.9));
+        // Draw note rectangles layer by layer
+        layers.forEach(layer => {
+          layer.sequence.forEach(n => {
+            const x = (n.time / this.totalDuration) * w;
+            const noteWidth = Math.max(2, (n.duration / this.totalDuration) * w - 1);
+            const normPitch = (n.midi - minMidi) / midiRange;
+            const y = h - (normPitch * (h - 20)) - 15;
+            const noteHeight = Math.max(5, Math.min(14, (h / midiRange) * 0.9));
 
-          const isCurrent = this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration);
+            const isCurrent = this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration);
 
-          if (isCurrent) {
-            // Glowing active note
-            ctx.fillStyle = '#34d399'; // emerald-400
-            ctx.shadowColor = '#10b981';
-            ctx.shadowBlur = 12;
-          } else if (n.time < this.currentPlayTime) {
-            // Past note
-            ctx.fillStyle = 'rgba(16, 185, 129, 0.35)'; // faded emerald
+            if (isCurrent) {
+              ctx.fillStyle = '#ffffff';
+              ctx.shadowColor = layer.color;
+              ctx.shadowBlur = 12;
+            } else if (n.time < this.currentPlayTime) {
+              ctx.fillStyle = layer.color + '55'; // Faded
+              ctx.shadowBlur = 0;
+            } else {
+              ctx.fillStyle = layer.color + 'cc';
+              ctx.shadowBlur = 0;
+            }
+
+            ctx.beginPath();
+            ctx.roundRect(x, y, noteWidth, noteHeight, 2);
+            ctx.fill();
             ctx.shadowBlur = 0;
-          } else {
-            // Upcoming note
-            ctx.fillStyle = 'rgba(52, 211, 153, 0.75)';
-            ctx.shadowBlur = 0;
-          }
-
-          ctx.beginPath();
-          ctx.roundRect(x, y, noteWidth, noteHeight, 2);
-          ctx.fill();
-          ctx.shadowBlur = 0;
+          });
         });
 
-        // Draw Playhead line
+        // Playhead line
         const playheadX = (this.currentPlayTime / this.totalDuration) * w;
-        ctx.strokeStyle = '#38bdf8'; // sky-400
+        ctx.strokeStyle = '#38bdf8';
         ctx.lineWidth = 2;
         ctx.shadowColor = '#0ea5e9';
         ctx.shadowBlur = 8;
@@ -1700,7 +2200,6 @@
         ctx.stroke();
         ctx.shadowBlur = 0;
 
-        // Playhead triangle cursor at top
         ctx.fillStyle = '#38bdf8';
         ctx.beginPath();
         ctx.moveTo(playheadX - 5, 0);
@@ -1711,40 +2210,8 @@
       }
 
       // ==========================================
-      // 9. BLE UI & Logging
+      // 9. Logging & Monitor
       // ==========================================
-      updateBleUI() {
-        const dot = document.getElementById('bleStatusDot');
-        const text = document.getElementById('bleStatusText');
-        const btn = document.getElementById('btnBleConnect');
-        const btnLabel = document.getElementById('btnBleConnectLabel');
-        const testBeep = document.getElementById('btnBleTestBeep');
-        const testLed = document.getElementById('btnBleTestLed');
-
-        if (this.ble.isConnected) {
-          dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 pulse-animation';
-          text.className = 'text-emerald-400 font-semibold';
-          text.textContent = this.ble.device ? this.ble.device.name || 'Root接続中' : 'Root接続中';
-
-          btn.className = 'flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-red-600 hover:bg-red-500 text-white shadow-md shadow-red-950/50 transition active:scale-95';
-          btnLabel.textContent = '切断';
-
-          testBeep.disabled = false;
-          testLed.disabled = false;
-        } else {
-          dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-500';
-          text.className = 'text-slate-300';
-          text.textContent = '未接続';
-
-          btn.className = 'flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-950/50 hover:shadow-emerald-900/40 transition active:scale-95';
-          btnLabel.textContent = 'Rootに接続';
-
-          testBeep.disabled = true;
-          testLed.disabled = true;
-        }
-        lucide.createIcons();
-      }
-
       log(type, message) {
         const time = new Date().toLocaleTimeString();
         console.log(`[${time}] [${type}] ${message}`);
@@ -1754,7 +2221,7 @@
         item.className = 'flex items-start gap-2 py-0.5 text-[11px]';
 
         let badgeColor = 'text-slate-400';
-        if (type === 'BLE') badgeColor = 'text-emerald-400';
+        if (type === 'BLE') badgeColor = 'text-emerald-400 font-semibold';
         if (type === 'ERR') badgeColor = 'text-red-400 font-bold';
         if (type === 'INFO') badgeColor = 'text-cyan-400';
 
@@ -1769,7 +2236,7 @@
         list.parentElement.scrollTop = list.parentElement.scrollHeight;
       }
 
-      logPacket(dir, bytes, desc) {
+      logPacket(tag, bytes, desc) {
         const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
         const count = ++this.packetLogs.length;
         document.getElementById('logCountBadge').textContent = `${count} packets`;
@@ -1779,13 +2246,13 @@
         const item = document.createElement('div');
         item.className = 'flex items-start gap-2 py-0.5 text-[11px] border-b border-slate-900/50';
 
-        const dirColor = dir === 'TX' ? 'text-cyan-400' : 'text-amber-400';
+        const tagColor = tag.startsWith('TX') ? 'text-cyan-400' : 'text-amber-400';
 
         item.innerHTML = `
           <span class="text-slate-500 select-none">${time}</span>
-          <span class="font-bold ${dirColor}">[${dir}]</span>
+          <span class="font-bold ${tagColor}">[${tag}]</span>
           <span class="text-slate-200">${desc}</span>
-          <span class="text-slate-500 font-mono text-[10px] ml-auto truncate max-w-[280px]" title="${hex}">${hex}</span>
+          <span class="text-slate-500 font-mono text-[10px] ml-auto truncate max-w-[260px]" title="${hex}">${hex}</span>
         `;
 
         list.appendChild(item);
@@ -1794,7 +2261,6 @@
       }
     }
 
-    // Initialize Application
     const app = new App();
     window.addEventListener('DOMContentLoaded', () => app.init());
   </script>
