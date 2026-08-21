@@ -54,9 +54,9 @@
           <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
             Root Ensemble Player
           </h1>
-          <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">Multi-Robot + PC Multi-Track</span>
+          <span id="orchestraModeBadge" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-full">PC / macOS 全パート演奏モード</span>
         </div>
-        <p class="text-xs text-slate-400">Root に主旋律メロディ、PC 側にドラム・ベース・ギター・シンセ複数伴奏を最適自動割り当て</p>
+        <p id="headerSubtitle" class="text-xs text-slate-400">Root未接続時はPC音源で全パート演奏。Root接続時はメロディと伴奏を自動最適配分</p>
       </div>
     </div>
 
@@ -65,7 +65,7 @@
       <!-- Device Count Badge -->
       <div id="deviceCountBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-medium">
         <span id="bleStatusDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
-        <span id="deviceCountText" class="text-slate-300">Root: 0台接続</span>
+        <span id="deviceCountText" class="text-slate-300">Root: 0台 (PC単独演奏)</span>
       </div>
 
       <!-- Add Root Robot Button -->
@@ -85,7 +85,7 @@
   <!-- Web Bluetooth Unsupported Warning Banner -->
   <div id="bleWarningBanner" class="hidden bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300 text-center flex items-center justify-center gap-2">
     <i data-lucide="alert-triangle" class="w-4 h-4 flex-shrink-0"></i>
-    <span>お使いのブラウザは Web Bluetooth API に対応していないか、安全な接続（HTTPS / localhost）で開かれていません。Google Chrome、Edge、または Opera でお試しください。</span>
+    <span>Web Bluetooth API は Chrome, Edge, Opera 等でご利用いただけます。Rootロボット未接続でもPC/macOSのブラウザ音源で全パート演奏可能です。</span>
   </div>
 
   <!-- Main Container -->
@@ -95,12 +95,12 @@
     <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
       <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
         <div class="flex items-center gap-2">
-          <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <div class="p-1.5 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
             <i data-lucide="users" class="w-4 h-4"></i>
           </div>
           <div>
             <h2 class="text-sm font-bold text-white">アンサンブル編成・パート割り当て</h2>
-            <p class="text-[11px] text-slate-400">Root ロボットに主旋律、PC 音源にドラム・ベース・シンセ等の複数伴奏パートを配分します</p>
+            <p id="deckSubtitle" class="text-[11px] text-slate-400">Root未接続時はPC音源ですべてのパートを演奏。Root接続時はメロディをRoot、伴奏をPCに自動配分します</p>
           </div>
         </div>
 
@@ -116,7 +116,7 @@
       <!-- Device Cards Container -->
       <div id="deviceCardsList" class="grid grid-cols-1 lg:grid-cols-12 gap-4">
         
-        <!-- PC Audio Device Card (Span 6 on LG) -->
+        <!-- PC Audio Device Card (Span 6 or 12 on LG depending on roots) -->
         <div id="pcAudioCard" class="lg:col-span-6 bg-slate-800/80 border border-sky-500/40 rounded-xl p-4 flex flex-col justify-between space-y-3 relative shadow-lg shadow-sky-950/20">
           <div class="flex items-start justify-between gap-2">
             <div class="flex items-center gap-2.5">
@@ -125,8 +125,8 @@
               </div>
               <div>
                 <div class="flex items-center gap-1.5">
-                  <span class="text-xs font-bold text-sky-300">PC / ブラウザ音源 (マルチパートシンセ)</span>
-                  <span id="pcPartCountBadge" class="text-[10px] font-semibold px-1.5 py-0.2 bg-sky-500/20 text-sky-300 rounded border border-sky-500/30">0 パート担当</span>
+                  <span class="text-xs font-bold text-sky-300">PC / macOS MIDI 音源</span>
+                  <span id="pcPartCountBadge" class="text-[10px] font-semibold px-1.5 py-0.2 bg-sky-500/20 text-sky-300 rounded border border-sky-500/30">全パート担当</span>
                 </div>
                 <div id="pcActiveNoteDisplay" class="text-[11px] font-mono text-slate-400 mt-0.5">待機中</div>
               </div>
@@ -138,23 +138,32 @@
             </label>
           </div>
 
-          <!-- PC Mode Selector & Assigned Tracks -->
-          <div class="space-y-2 text-xs bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-semibold text-slate-300">PC担当パート設定:</span>
-              <select id="pcModeSelect" class="bg-slate-800 border border-slate-700 text-sky-400 font-semibold rounded px-2 py-1 text-[11px] focus:outline-none">
-                <option value="auto" selected>⚡ 自動 (Root以外の全伴奏・リズム・コード隊)</option>
-                <option value="all">全トラック (Full Mix)</option>
+          <!-- MIDI Sound Engine & Output Route Selector -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div class="space-y-1">
+              <label class="text-[10px] text-slate-400 font-medium">音源出力先 (Sound Engine):</label>
+              <select id="pcOutputSelect" class="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2 py-1.5 text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none">
+                <option value="webaudio" selected>💻 内蔵 Web Audio GM シンセ (推奨)</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] text-slate-400 font-medium">PC担当パート設定:</label>
+              <select id="pcModeSelect" class="w-full bg-slate-900 border border-slate-700 text-sky-400 font-semibold rounded-lg px-2 py-1.5 text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none">
+                <option value="auto" selected>⚡ 自動 (Root未接続時は全パート / 接続時は伴奏)</option>
+                <option value="all">全トラック統合 (Full Mix)</option>
                 <option value="custom">カスタム選択 (手動チェック)</option>
               </select>
             </div>
+          </div>
 
-            <!-- Multi-track Checkbox Container -->
-            <div class="space-y-1">
-              <div class="text-[10px] text-slate-400">現在PC側で同時演奏中のトラック:</div>
-              <div id="pcTrackCheckboxList" class="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pt-0.5">
-                <span class="text-[11px] text-slate-500 italic">楽曲を読み込むと担当トラックが表示されます</span>
-              </div>
+          <!-- Multi-track Checkbox Container -->
+          <div class="space-y-1 bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60 text-xs">
+            <div class="flex items-center justify-between text-[10px] text-slate-400">
+              <span>PC音源で演奏中のトラック:</span>
+              <span id="pcModeIndicatorText" class="text-sky-400 font-medium">全パート演奏中</span>
+            </div>
+            <div id="pcTrackCheckboxList" class="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pt-0.5">
+              <span class="text-[11px] text-slate-500 italic">楽曲を読み込むと担当トラックが表示されます</span>
             </div>
           </div>
 
@@ -178,9 +187,17 @@
 
       </div>
 
-      <!-- Empty state if no Root robots connected -->
-      <div id="noRootMessage" class="bg-slate-800/40 border border-dashed border-slate-700/80 rounded-xl p-4 text-center text-xs text-slate-400">
-        <p>現在 Root ロボットは接続されていません。「<span class="text-emerald-400 font-semibold">Rootを追加接続</span>」ボタンを押すと、ロボットにメロディを割り当て、PC 側にドラム・ベース・シンセを割り当てて合奏できます。</p>
+      <!-- Helper / Empty state if no Root robots connected -->
+      <div id="noRootMessage" class="bg-slate-800/40 border border-dashed border-sky-500/30 rounded-xl p-3.5 flex items-center justify-between gap-3 text-xs text-slate-300">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded-lg bg-sky-500/20 text-sky-400 flex-shrink-0">
+            <i data-lucide="info" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <div class="font-semibold text-white">Root 未接続：PC / macOS 単独演奏モード</div>
+            <div class="text-[11px] text-slate-400">現在、主旋律・ドラム・ベース・伴奏を含むすべてのパートが PC 音源から演奏されます。「<span class="text-emerald-400 font-semibold">Rootを追加接続</span>」すると、メロディをロボットに分担させて合奏できます。</div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -279,7 +296,7 @@
         <div class="pt-2 border-t border-slate-800/80 text-xs">
           <div class="flex items-center justify-between text-slate-400 mb-1.5">
             <span class="font-semibold text-slate-300">オーケストレーション概要:</span>
-            <span id="allocationStrategyText" class="text-emerald-400 font-mono text-[11px]">自動配分中</span>
+            <span id="allocationStrategyText" class="text-sky-400 font-mono text-[11px]">PC単独フル演奏モード</span>
           </div>
           <div id="allocationSummaryList" class="flex flex-wrap gap-1.5">
             <span class="px-2 py-0.5 rounded bg-slate-800 text-[11px] text-slate-400">楽曲を読み込むと配分が表示されます</span>
@@ -316,7 +333,7 @@
           <!-- Play / Resume Button -->
           <button id="btnPlay" class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-sm shadow-lg shadow-emerald-950/60 transition">
             <i data-lucide="play" class="w-4 h-4 fill-current"></i>
-            <span id="btnPlayText">合奏を開始</span>
+            <span id="btnPlayText">演奏を開始</span>
           </button>
           
           <!-- Pause Button -->
@@ -387,7 +404,7 @@
       <div class="flex flex-wrap items-center justify-between text-xs font-semibold text-slate-400 gap-2">
         <span class="flex items-center gap-1.5">
           <i data-lucide="bar-chart-2" class="w-3.5 h-3.5 text-emerald-400"></i>
-          マルチパート ピアノロール（デバイス別カラー可視化）
+          マルチパート ピアノロール（デバイス別・楽器別カラー可視化）
         </span>
         <!-- Legend of colors -->
         <div id="pianoRollLegend" class="flex flex-wrap items-center gap-2 text-[10px]">
@@ -426,7 +443,7 @@
 
   <!-- Footer -->
   <footer class="border-t border-slate-800 py-4 px-4 text-center text-xs text-slate-400">
-    <p>iRobot Root® Bluetooth LE Multi-Device MIDI Player — Built with Web Bluetooth API, @tonejs/midi &amp; Tailwind CSS</p>
+    <p>iRobot Root® Bluetooth LE Multi-Device MIDI Player — Built with Web Bluetooth API, @tonejs/midi &amp; Web Audio Synth</p>
   </footer>
 
   <!-- Application Logic -->
@@ -716,7 +733,7 @@
     }
 
     // ==========================================
-    // 4. Advanced Polyphonic & Multi-Timbral PC Synthesizer
+    // 4. Advanced Polyphonic & Multi-Timbral PC Synthesizer (Web Audio + Web MIDI)
     // ==========================================
     class MultiTimbralPcSynth {
       constructor() {
@@ -725,17 +742,22 @@
         this.masterGain = null;
         this.noiseBuffer = null;
         this.activeVoices = [];
+
+        // Web MIDI Output Support
+        this.midiAccess = null;
+        this.selectedMidiOutput = null; // null = internal Web Audio synth
+        this.availableMidiOutputs = [];
       }
 
-      init() {
+      async init() {
         if (!this.ctx) {
           const AudioContext = window.AudioContext || window.webkitAudioContext;
           this.ctx = new AudioContext();
 
-          // Master compressor/limiter to prevent distortion with multi-track polyphony
+          // Master compressor to prevent distortion
           this.masterCompressor = this.ctx.createDynamicsCompressor();
-          this.masterCompressor.threshold.setValueAtTime(-18, this.ctx.currentTime);
-          this.masterCompressor.knee.setValueAtTime(12, this.ctx.currentTime);
+          this.masterCompressor.threshold.setValueAtTime(-16, this.ctx.currentTime);
+          this.masterCompressor.knee.setValueAtTime(10, this.ctx.currentTime);
           this.masterCompressor.ratio.setValueAtTime(6, this.ctx.currentTime);
           this.masterCompressor.attack.setValueAtTime(0.003, this.ctx.currentTime);
           this.masterCompressor.release.setValueAtTime(0.15, this.ctx.currentTime);
@@ -746,7 +768,7 @@
           this.masterCompressor.connect(this.masterGain);
           this.masterGain.connect(this.ctx.destination);
 
-          // Generate 1-second white noise buffer for drums
+          // 1-second white noise buffer for drums
           const bufferSize = this.ctx.sampleRate;
           this.noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
           const output = this.noiseBuffer.getChannelData(0);
@@ -755,7 +777,48 @@
           }
         }
         if (this.ctx.state === 'suspended') {
-          this.ctx.resume();
+          await this.ctx.resume();
+        }
+
+        // Initialize Web MIDI Access if available
+        if (navigator.requestMIDIAccess && !this.midiAccess) {
+          try {
+            this.midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+            this.updateMidiOutputs();
+            this.midiAccess.onstatechange = () => this.updateMidiOutputs();
+          } catch(e) {
+            console.log('Web MIDI not granted or unavailable:', e);
+          }
+        }
+      }
+
+      updateMidiOutputs() {
+        if (!this.midiAccess) return;
+        this.availableMidiOutputs = Array.from(this.midiAccess.outputs.values());
+        const select = document.getElementById('pcOutputSelect');
+        if (!select) return;
+
+        const currentVal = select.value;
+        select.innerHTML = '<option value="webaudio">💻 内蔵 Web Audio GM シンセ (推奨)</option>';
+
+        this.availableMidiOutputs.forEach(out => {
+          const opt = document.createElement('option');
+          opt.value = `midi_${out.id}`;
+          opt.textContent = `🎹 MIDI: ${out.name || 'External MIDI Device'}`;
+          select.appendChild(opt);
+        });
+
+        if (currentVal && select.querySelector(`option[value="${currentVal}"]`)) {
+          select.value = currentVal;
+        }
+      }
+
+      setOutputDestination(val) {
+        if (val === 'webaudio' || !val) {
+          this.selectedMidiOutput = null;
+        } else if (val.startsWith('midi_')) {
+          const outId = val.replace('midi_', '');
+          this.selectedMidiOutput = this.availableMidiOutputs.find(o => o.id === outId) || null;
         }
       }
 
@@ -768,8 +831,24 @@
       // Play Drum note (Kick, Snare, Hi-hat, Toms, Cymbals)
       playDrum(midiPitch, durationSec, velocity = 0.8) {
         this.init();
+
+        // If Web MIDI Output is selected (e.g. macOS IAC Driver, Hardware MIDI)
+        if (this.selectedMidiOutput) {
+          try {
+            const ch = 9; // Channel 10 (0-indexed 9)
+            const vel = Math.min(127, Math.max(1, Math.round(velocity * 127)));
+            this.selectedMidiOutput.send([0x90 | ch, midiPitch & 0x7F, vel]);
+            const durMs = Math.round(durationSec * 1000);
+            setTimeout(() => {
+              try { this.selectedMidiOutput.send([0x80 | ch, midiPitch & 0x7F, 0]); } catch(e){}
+            }, durMs);
+          } catch(e) {}
+          return;
+        }
+
+        // Web Audio Synthesizer Drum Synthesis
         const now = this.ctx.currentTime;
-        const vol = Math.max(0.2, velocity) * 0.4;
+        const vol = Math.max(0.2, velocity) * 0.45;
 
         if (midiPitch === 35 || midiPitch === 36) {
           // Bass Drum (Kick): Pitch drop sine 160Hz -> 35Hz
@@ -779,7 +858,7 @@
           osc.frequency.setValueAtTime(160, now);
           osc.frequency.exponentialRampToValueAtTime(38, now + 0.12);
 
-          gain.gain.setValueAtTime(vol * 1.2, now);
+          gain.gain.setValueAtTime(vol * 1.3, now);
           gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
 
           osc.connect(gain);
@@ -793,21 +872,20 @@
           osc.type = 'triangle';
           osc.frequency.setValueAtTime(180, now);
           osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
-          oscGain.gain.setValueAtTime(vol * 0.7, now);
+          oscGain.gain.setValueAtTime(vol * 0.75, now);
           oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
           osc.connect(oscGain);
           oscGain.connect(this.masterCompressor);
           osc.start(now);
           osc.stop(now + 0.13);
 
-          // Noise
           const noise = this.ctx.createBufferSource();
           noise.buffer = this.noiseBuffer;
           const filter = this.ctx.createBiquadFilter();
           filter.type = 'highpass';
           filter.frequency.setValueAtTime(1000, now);
           const noiseGain = this.ctx.createGain();
-          noiseGain.gain.setValueAtTime(vol * 0.9, now);
+          noiseGain.gain.setValueAtTime(vol * 0.95, now);
           noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
           noise.connect(filter);
           filter.connect(noiseGain);
@@ -815,7 +893,7 @@
           noise.start(now);
           noise.stop(now + 0.19);
         } else if (midiPitch === 42 || midiPitch === 44 || midiPitch === 46) {
-          // Hi-Hat: Highpass filtered noise (Closed vs Open)
+          // Hi-Hat: Highpass filtered noise
           const isOpen = (midiPitch === 46);
           const hatDur = isOpen ? 0.25 : 0.045;
           const noise = this.ctx.createBufferSource();
@@ -824,7 +902,7 @@
           filter.type = 'highpass';
           filter.frequency.setValueAtTime(7000, now);
           const noiseGain = this.ctx.createGain();
-          noiseGain.gain.setValueAtTime(vol * 0.6, now);
+          noiseGain.gain.setValueAtTime(vol * 0.65, now);
           noiseGain.gain.exponentialRampToValueAtTime(0.001, now + hatDur);
           noise.connect(filter);
           filter.connect(noiseGain);
@@ -850,12 +928,29 @@
       }
 
       // Play Melodic / Harmonic / Bass / Synth note
-      playInstrumentNote(freqHz, durationSec, trackCategory = 'harmony', velocity = 0.8) {
+      playInstrumentNote(freqHz, durationSec, trackCategory = 'harmony', velocity = 0.8, channel = 0, midiPitch = 60) {
         this.init();
+
+        // If Web MIDI Output is selected
+        if (this.selectedMidiOutput) {
+          try {
+            const ch = (channel || 0) % 16;
+            const pitch = Math.min(127, Math.max(0, Math.round(midiPitch)));
+            const vel = Math.min(127, Math.max(1, Math.round(velocity * 127)));
+            this.selectedMidiOutput.send([0x90 | ch, pitch, vel]);
+            const durMs = Math.round(durationSec * 1000);
+            setTimeout(() => {
+              try { this.selectedMidiOutput.send([0x80 | ch, pitch, 0]); } catch(e){}
+            }, durMs);
+          } catch(e) {}
+          return;
+        }
+
+        // Web Audio Synthesizer Instrument Synthesis
         const now = this.ctx.currentTime;
         const dur = Math.max(0.04, durationSec);
         const safeFreq = Math.max(25, Math.min(8000, freqHz || 440));
-        const baseVol = Math.max(0.2, velocity) * 0.25;
+        const baseVol = Math.max(0.2, velocity) * 0.28;
 
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -876,7 +971,7 @@
           osc.connect(filter);
           filter.connect(gain);
         } else if (trackCategory === 'guitar') {
-          // Guitar / Pluck / Overdrive: Sawtooth + Bandpass/Lowpass with pluck envelope
+          // Guitar / Pluck / Overdrive: Sawtooth + Pluck envelope
           osc.type = 'sawtooth';
           osc.frequency.setValueAtTime(safeFreq, now);
           filter.type = 'lowpass';
@@ -884,7 +979,7 @@
           filter.frequency.exponentialRampToValueAtTime(600, now + dur);
 
           gain.gain.setValueAtTime(0.001, now);
-          gain.gain.linearRampToValueAtTime(baseVol * 0.9, now + 0.005);
+          gain.gain.linearRampToValueAtTime(baseVol * 0.95, now + 0.005);
           gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
 
           osc.connect(filter);
@@ -898,18 +993,32 @@
 
           const attack = Math.min(0.06, dur * 0.2);
           gain.gain.setValueAtTime(0.001, now);
-          gain.gain.linearRampToValueAtTime(baseVol * 0.7, now + attack);
-          gain.gain.setValueAtTime(baseVol * 0.7, now + dur - 0.04);
+          gain.gain.linearRampToValueAtTime(baseVol * 0.75, now + attack);
+          gain.gain.setValueAtTime(baseVol * 0.75, now + dur - 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+          osc.connect(filter);
+          filter.connect(gain);
+        } else if (trackCategory === 'melody') {
+          // Crisp Lead / Piano Melody
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(safeFreq, now);
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(3200, now);
+
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(baseVol * 0.9, now + 0.005);
+          gain.gain.setValueAtTime(baseVol * 0.8, now + dur - 0.02);
           gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
 
           osc.connect(filter);
           filter.connect(gain);
         } else {
-          // Standard Harmony / Piano: Square / Filtered square
+          // Standard Harmony / Accompaniment
           osc.type = 'square';
           osc.frequency.setValueAtTime(safeFreq, now);
           filter.type = 'lowpass';
-          filter.frequency.setValueAtTime(2800, now);
+          filter.frequency.setValueAtTime(2600, now);
 
           gain.gain.setValueAtTime(0.001, now);
           gain.gain.linearRampToValueAtTime(baseVol * 0.8, now + 0.006);
@@ -925,7 +1034,7 @@
         osc.stop(now + dur + 0.05);
 
         this.activeVoices.push({ osc, gain });
-        if (this.activeVoices.length > 32) {
+        if (this.activeVoices.length > 40) {
           const oldest = this.activeVoices.shift();
           try { oldest.osc.stop(); } catch(e){}
         }
@@ -939,6 +1048,16 @@
           } catch(e){}
         });
         this.activeVoices = [];
+
+        // Stop all notes on external Web MIDI output
+        if (this.selectedMidiOutput) {
+          for (let ch = 0; ch < 16; ch++) {
+            try {
+              this.selectedMidiOutput.send([0xB0 | ch, 123, 0]); // All notes off
+              this.selectedMidiOutput.send([0xB0 | ch, 120, 0]); // All sound off
+            } catch(e){}
+          }
+        }
       }
     }
 
@@ -1377,7 +1496,7 @@
           isEnabled: true,
           mode: 'auto', // 'auto', 'all', 'custom'
           selectedTrackIndices: new Set(),
-          trackPipelines: [], // Array of { trackIndex, name, category, sequence, nextIndex }
+          trackPipelines: [], // Array of { trackIndex, name, category, sequence, nextIndex, channel }
           volume: 0.75,
           isMuted: false,
           activeNotesCount: 0
@@ -1407,6 +1526,7 @@
         this.initCanvas();
         this.loadPreset('twinkle');
         this.renderDeviceCards();
+        this.synth.init();
         lucide.createIcons();
       }
 
@@ -1446,6 +1566,10 @@
           this.pcDevice.isEnabled = e.target.checked;
           if (!this.pcDevice.isEnabled) this.synth.stopTone();
           this.recalculateEnsembleSequences();
+        });
+
+        document.getElementById('pcOutputSelect').addEventListener('change', (e) => {
+          this.synth.setOutputDestination(e.target.value);
         });
 
         document.getElementById('pcModeSelect').addEventListener('change', (e) => {
@@ -1662,17 +1786,25 @@
         const dot = document.getElementById('bleStatusDot');
         const text = document.getElementById('deviceCountText');
         const disconnectAll = document.getElementById('btnDisconnectAll');
+        const modeBadge = document.getElementById('orchestraModeBadge');
+        const headerSubtitle = document.getElementById('headerSubtitle');
 
         if (count > 0) {
           dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 pulse-animation';
           text.className = 'text-emerald-400 font-semibold';
           text.textContent = `Root: ${count}台接続中 (合奏モード)`;
           disconnectAll.disabled = false;
+          modeBadge.className = 'text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full';
+          modeBadge.textContent = `Root ${count}台 ＋ PC 合奏モード`;
+          headerSubtitle.textContent = 'Root に主旋律メロディ、PC 側にドラム・ベース・ギター・シンセ複数伴奏を自動最適配分';
         } else {
           dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-500';
           text.className = 'text-slate-300';
-          text.textContent = 'Root: 0台接続';
+          text.textContent = 'Root: 0台 (PC単独演奏)';
           disconnectAll.disabled = true;
+          modeBadge.className = 'text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-full';
+          modeBadge.textContent = 'PC / macOS 全パート演奏モード';
+          headerSubtitle.textContent = 'Root未接続のため、PC/macOS音源ですべてのパート（メロディ＋伴奏＋ドラム＋ベース）を演奏中';
         }
       }
 
@@ -1911,68 +2043,63 @@
           d.autoResolvedVoice = null;
         });
 
-        // 1. Separate Melody Candidates vs Accompaniment Tracks
         const melodyCandidates = classified.filter(c => c.isMelodyCandidate).sort((a, b) => (b.melodyScore || 0) - (a.melodyScore || 0));
         const otherTracks = classified.filter(c => !c.isMelodyCandidate).sort((a, b) => a.priority - b.priority);
-
         const assignedToRoots = new Set();
 
-        // 2. Assign Root Robots (Prioritize Melody)
-        if (classified.length > 1) {
-          let melPtr = 0;
-          activeRoots.forEach((root, idx) => {
-            if (root.assignedPart === 'auto') {
-              if (melPtr < melodyCandidates.length) {
-                const target = melodyCandidates[melPtr++];
-                root.autoResolvedTrackIndex = target.trackIndex;
-                root.autoResolvedRole = `[Tr ${target.trackIndex + 1}] ${target.label}`;
-                assignedToRoots.add(target.trackIndex);
-              } else if (idx < classified.length) {
-                // If more roots than melody candidates, assign other tracks
-                const target = otherTracks[idx - melodyCandidates.length] || classified[idx % classified.length];
-                root.autoResolvedTrackIndex = target.trackIndex;
-                root.autoResolvedRole = `[Tr ${target.trackIndex + 1}] ${target.label}`;
-                assignedToRoots.add(target.trackIndex);
-              }
-            } else if (root.assignedPart.startsWith('track_')) {
-              const trIdx = parseInt(root.assignedPart.replace('track_', ''), 10);
-              assignedToRoots.add(trIdx);
-            }
-          });
-        } else {
-          // Single-track: Voice splitting
-          activeRoots.forEach((root, idx) => {
-            if (root.assignedPart === 'auto') {
-              root.autoResolvedVoice = idx;
-              root.autoResolvedRole = `Voice ${idx + 1} (${idx === 0 ? '最高音メロディ' : idx === 1 ? '中音和音' : '低音'})`;
-            }
-          });
-        }
-
-        // 3. Assign PC Side (Assign multiple accompaniment tracks: drums, bass, synth, guitar...)
-        this.pcDevice.selectedTrackIndices.clear();
-
-        if (this.pcDevice.mode === 'all') {
-          this.parsedTracks.forEach(t => this.pcDevice.selectedTrackIndices.add(t.index));
-        } else if (this.pcDevice.mode === 'auto') {
+        if (activeRoots.length > 0) {
+          // 🤖 When 1 or more Root robots are connected:
           if (classified.length > 1) {
-            // Auto Mode: Assign ALL accompaniment tracks (especially drums, bass, synth, guitar) not assigned to Root #1
+            let melPtr = 0;
+            activeRoots.forEach((root, idx) => {
+              if (root.assignedPart === 'auto') {
+                if (melPtr < melodyCandidates.length) {
+                  const target = melodyCandidates[melPtr++];
+                  root.autoResolvedTrackIndex = target.trackIndex;
+                  root.autoResolvedRole = `[Tr ${target.trackIndex + 1}] ${target.label}`;
+                  assignedToRoots.add(target.trackIndex);
+                } else if (idx < classified.length) {
+                  const target = otherTracks[idx - melodyCandidates.length] || classified[idx % classified.length];
+                  root.autoResolvedTrackIndex = target.trackIndex;
+                  root.autoResolvedRole = `[Tr ${target.trackIndex + 1}] ${target.label}`;
+                  assignedToRoots.add(target.trackIndex);
+                }
+              } else if (root.assignedPart.startsWith('track_')) {
+                const trIdx = parseInt(root.assignedPart.replace('track_', ''), 10);
+                assignedToRoots.add(trIdx);
+              }
+            });
+          } else {
+            // Single-track: Voice splitting
+            activeRoots.forEach((root, idx) => {
+              if (root.assignedPart === 'auto') {
+                root.autoResolvedVoice = idx;
+                root.autoResolvedRole = `Voice ${idx + 1} (${idx === 0 ? '最高音メロディ' : idx === 1 ? '中音和音' : '低音'})`;
+              }
+            });
+          }
+
+          // PC plays all remaining accompaniment parts (drums, bass, synth, etc.)
+          this.pcDevice.selectedTrackIndices.clear();
+          if (this.pcDevice.mode === 'all') {
+            this.parsedTracks.forEach(t => this.pcDevice.selectedTrackIndices.add(t.index));
+          } else if (this.pcDevice.mode === 'auto') {
             classified.forEach(c => {
               if (!assignedToRoots.has(c.trackIndex)) {
                 this.pcDevice.selectedTrackIndices.add(c.trackIndex);
               }
             });
-            // If all tracks were assigned to roots, include all accompaniment anyway
             if (this.pcDevice.selectedTrackIndices.size === 0) {
               otherTracks.forEach(c => this.pcDevice.selectedTrackIndices.add(c.trackIndex));
               if (this.pcDevice.selectedTrackIndices.size === 0) {
                 this.parsedTracks.forEach(t => this.pcDevice.selectedTrackIndices.add(t.index));
               }
             }
-          } else {
-            // Single-track: PC plays full accompaniment or lower voices
-            this.pcDevice.selectedTrackIndices.add(0);
           }
+        } else {
+          // 💻 When 0 Root robots connected: PC plays ALL PARTS (Melody + Bass + Drums + Chords + Guitar)
+          this.pcDevice.selectedTrackIndices.clear();
+          this.parsedTracks.forEach(t => this.pcDevice.selectedTrackIndices.add(t.index));
         }
 
         this.recalculateEnsembleSequences();
@@ -2018,7 +2145,10 @@
           container.appendChild(label);
         });
 
-        document.getElementById('pcPartCountBadge').textContent = `${this.pcDevice.selectedTrackIndices.size} パート担当`;
+        const count = this.pcDevice.selectedTrackIndices.size;
+        const total = this.parsedTracks.length;
+        document.getElementById('pcPartCountBadge').textContent = (count === total && total > 0) ? '全パート担当 (Full)' : `${count} パート担当`;
+        document.getElementById('pcModeIndicatorText').textContent = (count === total && total > 0) ? '全パート演奏中 (Full Mix)' : `${count} パート選択中`;
       }
 
       // Build sequence pipelines for each device
@@ -2061,7 +2191,6 @@
             const tr = this.parsedTracks.find(t => t.index === trIdx);
             if (tr && tr.notes.length > 0) {
               const category = tr.category || this.classifyTrack(tr, trIdx).category;
-              // PC supports full polyphony or monophonic per track
               const seq = tr.notes.map(n => ({
                 time: Number(n.time) >= 0 ? Number(n.time) : 0,
                 duration: Math.max(0.01, Number(n.duration) || 0.1),
@@ -2076,17 +2205,19 @@
                 trackIndex: trIdx,
                 name: tr.name,
                 category: category,
+                channel: tr.channel || 0,
                 sequence: seq,
                 nextIndex: 0
               });
             }
           });
         } else {
-          // Single-track MIDI: PC plays full chords or bass
+          // Single-track MIDI: PC plays full chords or melody
           this.pcDevice.trackPipelines.push({
             trackIndex: 0,
             name: this.parsedTracks[0].name,
-            category: 'harmony',
+            category: 'melody',
+            channel: 0,
             sequence: this.parsedTracks[0].notes.map(n => ({
               time: Number(n.time) || 0,
               duration: Number(n.duration) || 0.1,
@@ -2144,13 +2275,20 @@
         summaryList.innerHTML = '';
 
         const activeRoots = this.rootDevices.filter(d => d.isConnected);
-        roleText.textContent = `Root: ${activeRoots.length}台 (主旋律系) ＋ PC: ${this.pcDevice.selectedTrackIndices.size}パート (リズム・伴奏系)`;
 
-        // PC pill
-        if (this.pcDevice.isEnabled) {
+        if (activeRoots.length > 0) {
+          roleText.textContent = `Root: ${activeRoots.length}台 (主旋律系) ＋ PC: ${this.pcDevice.selectedTrackIndices.size}パート (リズム・伴奏系)`;
+          if (this.pcDevice.isEnabled) {
+            const pcPill = document.createElement('span');
+            pcPill.className = `px-2 py-0.5 rounded text-[11px] font-medium border ${PC_THEME.badgeClass}`;
+            pcPill.textContent = `💻 PC音源: ${this.pcDevice.selectedTrackIndices.size} パート同時演奏 (ドラム/ベース/シンセ)`;
+            summaryList.appendChild(pcPill);
+          }
+        } else {
+          roleText.textContent = `💻 PC / macOS 単独フル演奏モード (全 ${this.pcDevice.selectedTrackIndices.size} パート演奏中)`;
           const pcPill = document.createElement('span');
           pcPill.className = `px-2 py-0.5 rounded text-[11px] font-medium border ${PC_THEME.badgeClass}`;
-          pcPill.textContent = `💻 PC音源: ${this.pcDevice.selectedTrackIndices.size} パート同時演奏 (ドラム/ベース/シンセ)`;
+          pcPill.textContent = `💻 PC/macOS音源: 全パート (主旋律＋ドラム＋ベース＋伴奏) フル演奏中`;
           summaryList.appendChild(pcPill);
         }
 
@@ -2185,6 +2323,7 @@
           index: trIdx++,
           name: t.name,
           category: t.category,
+          channel: trIdx - 1,
           notes: t.notes.map(n => ({
             time: Number(n.time) || 0,
             duration: Number(n.duration) || 0.2,
@@ -2306,7 +2445,7 @@
         this.playbackStartTime = performance.now() - (this.currentPlayTime * 1000 / this.speed);
         
         this.engineLoop();
-        this.log('INFO', `合奏開始: 位置 ${formatTime(this.currentPlayTime)}`);
+        this.log('INFO', `演奏開始: 位置 ${formatTime(this.currentPlayTime)}`);
       }
 
       pause() {
@@ -2325,7 +2464,7 @@
 
         this.resetActiveNoteBadges();
         this.drawPianoRoll();
-        this.log('INFO', `合奏一時停止: 位置 ${formatTime(this.currentPlayTime)}`);
+        this.log('INFO', `演奏一時停止: 位置 ${formatTime(this.currentPlayTime)}`);
       }
 
       stop() {
@@ -2348,7 +2487,7 @@
 
         document.getElementById('btnPlay').classList.remove('bg-amber-600', 'hover:bg-amber-500');
         document.getElementById('btnPlay').classList.add('bg-emerald-600', 'hover:bg-emerald-500');
-        document.getElementById('btnPlayText').textContent = '合奏を開始';
+        document.getElementById('btnPlayText').textContent = '演奏を開始';
         document.getElementById('btnPause').disabled = true;
         document.getElementById('btnStop').disabled = true;
 
@@ -2418,13 +2557,13 @@
           }
         });
 
-        // 2. Trigger Notes for PC Multi-Track Synthesizer (Drums, Bass, Chords, Guitar)
+        // 2. Trigger Notes for PC Multi-Track Synthesizer
         if (this.pcDevice.isEnabled && !this.pcDevice.isMuted) {
           this.pcDevice.trackPipelines.forEach(pipe => {
             while (pipe.nextIndex < pipe.sequence.length) {
               const note = pipe.sequence[pipe.nextIndex];
               if (this.currentPlayTime >= note.time) {
-                this.triggerPcNote(note, pipe.category);
+                this.triggerPcNote(note, pipe.category, pipe.channel);
                 pipe.nextIndex++;
               } else {
                 break;
@@ -2453,13 +2592,13 @@
         }
       }
 
-      triggerPcNote(note, trackCategory) {
+      triggerPcNote(note, trackCategory, channel = 0) {
         const actualDurationSec = note.duration / this.speed;
         if (note.isDrum) {
           this.synth.playDrum(note.midi, actualDurationSec, note.velocity);
         } else {
           const safeFreq = Math.max(25, Math.min(8000, note.freq || 440));
-          this.synth.playInstrumentNote(safeFreq, actualDurationSec, trackCategory, note.velocity);
+          this.synth.playInstrumentNote(safeFreq, actualDurationSec, trackCategory, note.velocity, channel, note.midi);
         }
       }
 
@@ -2467,11 +2606,14 @@
         // PC active notes
         let activePcCount = 0;
         let activeCategoryNames = [];
+        let topPcNote = null;
+
         this.pcDevice.trackPipelines.forEach(p => {
           const cur = p.sequence.find(n => this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration));
           if (cur) {
             activePcCount++;
             if (!activeCategoryNames.includes(p.category)) activeCategoryNames.push(p.category);
+            if (!topPcNote || cur.midi > topPcNote.midi) topPcNote = cur;
           }
         });
 
@@ -2501,11 +2643,12 @@
           }
         });
 
-        // Top overall active note
-        const anyActive = this.rootDevices.map(d => d.currentNote).filter(Boolean)[0];
-        if (anyActive) {
-          document.getElementById('activeNoteName').textContent = anyActive.name;
-          document.getElementById('activeNoteFreq').textContent = `${anyActive.freq} Hz`;
+        // Top overall active note (From Root if connected, else from PC)
+        const anyRootActive = this.rootDevices.map(d => d.currentNote).filter(Boolean)[0];
+        const activeTop = anyRootActive || topPcNote;
+        if (activeTop) {
+          document.getElementById('activeNoteName').textContent = activeTop.name;
+          document.getElementById('activeNoteFreq').textContent = `${Math.round(activeTop.freq || 0)} Hz`;
         } else {
           document.getElementById('activeNoteName').textContent = '---';
           document.getElementById('activeNoteFreq').textContent = '0 Hz';
@@ -2587,6 +2730,7 @@
         // PC Multi-Track layers
         if (this.pcDevice.isEnabled) {
           const categoryColors = {
+            melody: '#34d399',
             drums: '#94a3b8',
             bass: '#818cf8',
             guitar: '#fbbf24',
@@ -2641,7 +2785,6 @@
             
             let y, noteHeight;
             if (n.isDrum) {
-              // Draw drums at bottom row
               y = h - 12;
               noteHeight = 6;
             } else {
