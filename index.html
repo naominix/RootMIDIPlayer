@@ -588,6 +588,11 @@
         this.isConnected = false;
         this.seqInc = 0;
         this.packetQueue = Promise.resolve();
+        this.queueGeneration = 0;
+        this.lastLedState = '';
+        this.lastLedUpdateTime = 0;
+        this.cardLabelEl = null;
+        this._boundOnDisconnected = () => this.onDisconnected();
 
         this.assignedPart = 'auto'; // 'auto', 'track_X', 'voice_X', 'all'
         this.autoResolvedRole = '';
@@ -602,9 +607,15 @@
         return this.seqInc;
       }
 
+      clearQueue() {
+        this.queueGeneration++;
+        this.lastLedState = '';
+      }
+
       async connect() {
         app.log('BLE', `[${this.name}] GATT接続中...`);
-        this.device.addEventListener('gattserverdisconnected', () => this.onDisconnected());
+        this.device.removeEventListener('gattserverdisconnected', this._boundOnDisconnected);
+        this.device.addEventListener('gattserverdisconnected', this._boundOnDisconnected);
         
         this.server = await this.device.gatt.connect();
         const service = await this.server.getPrimaryService(ROOT_BLE.UART_SERVICE);
@@ -624,34 +635,41 @@
         app.log('BLE', `[${this.name}] 接続完了！`);
         
         // Spin LED with slot color
-        await this.setLights(3, this.theme.rgb[0], this.theme.rgb[1], this.theme.rgb[2]);
+        await this.setLights(3, this.theme.rgb[0], this.theme.rgb[1], this.theme.rgb[2], { force: true });
       }
 
       async disconnect() {
         if (this.isConnected) {
           await this.stopSound();
-          await this.setLights(0, 0, 0, 0);
+          await this.setLights(0, 0, 0, 0, { force: true });
         }
-        if (this.device && this.device.gatt.connected) {
+        if (this.device && this.device.gatt && this.device.gatt.connected) {
           this.device.gatt.disconnect();
         }
         this.onDisconnected();
       }
 
       onDisconnected() {
+        const wasConnected = this.isConnected;
         this.isConnected = false;
+        this.clearQueue();
         this.server = null;
         this.txCharacteristic = null;
         this.rxCharacteristic = null;
         this.currentNote = null;
-        app.log('BLE', `[${this.name}] 切断されました。`);
-        app.onDeviceListChanged();
+        if (wasConnected) {
+          app.log('BLE', `[${this.name}] 切断されました。`);
+        }
+        app.removeDisconnectedDevice(this);
       }
 
-      async writePacket(packetBytes, description = '') {
+      async writePacket(packetBytes, description = '', bypassGenerationCheck = false) {
         if (!this.isConnected || !this.txCharacteristic) return;
+        const expectedGen = this.queueGeneration;
 
         this.packetQueue = this.packetQueue.then(async () => {
+          if (!this.isConnected || !this.txCharacteristic) return;
+          if (!bypassGenerationCheck && this.queueGeneration !== expectedGen) return;
           try {
             if (this.txCharacteristic.writeValueWithResponse) {
               await this.txCharacteristic.writeValueWithResponse(packetBytes);
@@ -680,12 +698,30 @@
       }
 
       async stopSound() {
+        this.clearQueue();
         const inc = this.getNextInc();
         const packet = createStopSoundPacket(inc);
-        return this.writePacket(packet, 'StopSound');
+        return this.writePacket(packet, 'StopSound', true);
       }
 
-      async setLights(animation, r, g, b) {
+      async setLights(animation, r, g, b, options = {}) {
+        const { throttleMs = 0, force = false } = options;
+        const now = performance.now();
+        const stateKey = `${animation}:${r},${g},${b}`;
+
+        if (animation === 0 && r === 0 && g === 0 && b === 0 && force) {
+          this.lastLedState = '';
+        } else {
+          if (!force && this.lastLedState === stateKey && animation !== 3) {
+            return;
+          }
+          if (!force && throttleMs > 0 && (now - this.lastLedUpdateTime) < throttleMs) {
+            return;
+          }
+          this.lastLedState = stateKey;
+          this.lastLedUpdateTime = now;
+        }
+
         const inc = this.getNextInc();
         const packet = createSetLightsPacket(animation, r, g, b, inc);
         return this.writePacket(packet, `SetLights: anim=${animation} RGB(${r},${g},${b})`);
@@ -746,6 +782,15 @@
         osc.connect(gain);
         gain.connect(this.ctx.destination);
 
+        osc.onended = () => {
+          try { osc.disconnect(); } catch (e) {}
+          try { gain.disconnect(); } catch (e) {}
+          if (this.currentOsc === osc) {
+            this.currentOsc = null;
+            this.currentGain = null;
+          }
+        };
+
         osc.start(now);
         osc.stop(now + dur + 0.05);
 
@@ -755,13 +800,24 @@
 
       stopTone() {
         if (this.currentOsc) {
-          try {
-            this.currentGain.gain.cancelScheduledValues(this.ctx.currentTime);
-            this.currentGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
-            this.currentOsc.stop(this.ctx.currentTime + 0.01);
-          } catch (e) {}
+          const osc = this.currentOsc;
+          const gain = this.currentGain;
           this.currentOsc = null;
           this.currentGain = null;
+          try {
+            if (gain && this.ctx) {
+              gain.gain.cancelScheduledValues(this.ctx.currentTime);
+              gain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+            }
+            if (this.ctx) {
+              osc.stop(this.ctx.currentTime + 0.01);
+            } else {
+              osc.stop();
+            }
+          } catch (e) {
+            try { osc.disconnect(); } catch (e2) {}
+            try { if (gain) gain.disconnect(); } catch (e2) {}
+          }
         }
       }
     }
@@ -882,13 +938,14 @@
     function monophonizeNotes(rawNotes, strategy = 'highest', gateRatio = 0.85, transpose = 0) {
       if (!rawNotes || rawNotes.length === 0) return [];
 
-      const notes = rawNotes.map(n => {
+      const notes = rawNotes.map((n, idx) => {
         const time = Number(n.time) >= 0 ? Number(n.time) : 0;
         const duration = Math.max(0.01, Number(n.duration) || 0.1);
         const rawMidi = Number(n.midi) || 60;
         const velocity = Number(n.velocity) || 0.8;
         const transposedMidi = Math.min(108, Math.max(21, rawMidi + transpose));
         return {
+          _noteId: idx,
           time: time,
           duration: duration,
           midi: transposedMidi,
@@ -928,6 +985,7 @@
             }
           }
           slices.push({
+            noteId: chosen._noteId,
             time: t0,
             duration: dt,
             midi: chosen.midi,
@@ -942,7 +1000,7 @@
         const cur = slices[i];
         if (merged.length > 0) {
           const prev = merged[merged.length - 1];
-          if (Math.abs((prev.time + prev.duration) - cur.time) < 0.015 && prev.midi === cur.midi) {
+          if (Math.abs((prev.time + prev.duration) - cur.time) < 0.015 && prev.midi === cur.midi && prev.noteId === cur.noteId) {
             prev.duration += cur.duration;
             continue;
           }
@@ -970,13 +1028,14 @@
     function extractVoiceFromNotes(rawNotes, voiceRank = 0, totalVoices = 3, gateRatio = 0.85, transpose = 0) {
       if (!rawNotes || rawNotes.length === 0) return [];
 
-      const notes = rawNotes.map(n => {
+      const notes = rawNotes.map((n, idx) => {
         const time = Number(n.time) >= 0 ? Number(n.time) : 0;
         const duration = Math.max(0.01, Number(n.duration) || 0.1);
         const rawMidi = Number(n.midi) || 60;
         const velocity = Number(n.velocity) || 0.8;
         const transposedMidi = Math.min(108, Math.max(21, rawMidi + transpose));
         return {
+          _noteId: idx,
           time, duration,
           midi: transposedMidi,
           name: midiToName(transposedMidi),
@@ -1009,13 +1068,14 @@
         let targetNote = null;
         if (voiceRank < active.length) {
           targetNote = active[voiceRank];
-        } else if (voiceRank === totalVoices - 1 && active.length > 0) {
-          // Bottom voice gets lowest note
+        } else if (active.length > 0) {
+          // Fall back to lowest active note so voice never returns 0 notes
           targetNote = active[active.length - 1];
         }
 
         if (targetNote) {
           slices.push({
+            noteId: targetNote._noteId,
             time: t0,
             duration: dt,
             midi: targetNote.midi,
@@ -1031,7 +1091,7 @@
         const cur = slices[i];
         if (merged.length > 0) {
           const prev = merged[merged.length - 1];
-          if (Math.abs((prev.time + prev.duration) - cur.time) < 0.015 && prev.midi === cur.midi) {
+          if (Math.abs((prev.time + prev.duration) - cur.time) < 0.015 && prev.midi === cur.midi && prev.noteId === cur.noteId) {
             prev.duration += cur.duration;
             continue;
           }
@@ -1055,6 +1115,26 @@
       });
     }
 
+    // Fold low-frequency notes upward by octaves for Root piezo speaker protection
+    function foldSequenceForRootPiezo(sequence, minMidi = 48) {
+      if (!sequence || sequence.length === 0) return [];
+      return sequence.map(n => {
+        let m = n.midi;
+        if (m < minMidi) {
+          while (m < minMidi) m += 12;
+          const freq = midiToFreq(m);
+          return {
+            ...n,
+            midi: m,
+            name: midiToName(m),
+            freq: Math.round(freq * 10) / 10,
+            freqRounded: Math.round(freq)
+          };
+        }
+        return { ...n };
+      });
+    }
+
     // ==========================================
     // 7. Main Application Class
     // ==========================================
@@ -1070,6 +1150,7 @@
           isEnabled: true,
           assignedPart: 'auto', // 'auto', 'track_X', 'voice_X', 'all'
           autoResolvedRole: '',
+          autoBassOctaveDown: false,
           volume: 0.7,
           isMuted: false,
           sequence: [],
@@ -1092,7 +1173,16 @@
         this.playbackStartTime = 0;
         this.currentPlayTime = 0;
         this.animFrameId = null;
+        this.bgTimerId = null;
         this.packetLogs = [];
+
+        // Offscreen Piano Roll Cache
+        this.bgBrightCanvas = null;
+        this.bgDimCanvas = null;
+        this.cachedLayers = [];
+        this.cachedMinMidi = 21;
+        this.cachedMaxMidi = 108;
+        this.cachedMidiRange = 87;
       }
 
       init() {
@@ -1123,7 +1213,7 @@
 
         // Disconnect All
         document.getElementById('btnDisconnectAll').addEventListener('click', async () => {
-          for (const dev of this.rootDevices) {
+          for (const dev of [...this.rootDevices]) {
             await dev.disconnect();
           }
           this.rootDevices = [];
@@ -1212,7 +1302,11 @@
 
         // Speed Select
         document.getElementById('speedSelect').addEventListener('change', (e) => {
-          this.speed = parseFloat(e.target.value) || 1.0;
+          const newSpeed = parseFloat(e.target.value) || 1.0;
+          if (this.isPlaying) {
+            this.playbackStartTime = performance.now() - (this.currentPlayTime * 1000 / newSpeed);
+          }
+          this.speed = newSpeed;
         });
 
         // Gate Ratio Slider
@@ -1291,6 +1385,13 @@
           document.getElementById('logCountBadge').textContent = '0 packets';
         });
 
+        document.addEventListener('visibilitychange', () => {
+          if (this.isPlaying) {
+            this.clearEngineTimers();
+            this.scheduleNextTick();
+          }
+        });
+
         window.addEventListener('resize', () => this.resizeCanvas());
       }
 
@@ -1339,6 +1440,20 @@
 
         this.rootDevices.push(newRoot);
         this.onDeviceListChanged();
+      }
+
+      removeDisconnectedDevice(dev) {
+        const beforeLen = this.rootDevices.length;
+        this.rootDevices = this.rootDevices.filter(d => d !== dev && d.device.id !== dev.device.id);
+        this.rootDevices.forEach((d, idx) => {
+          d.slotIndex = idx;
+          d.theme = DEVICE_THEMES[idx % DEVICE_THEMES.length];
+        });
+        if (this.rootDevices.length !== beforeLen) {
+          this.onDeviceListChanged();
+        } else {
+          this.updateHeaderDeviceBadge();
+        }
       }
 
       onDeviceListChanged() {
@@ -1435,17 +1550,17 @@
             </div>
           `;
 
+          dev.cardLabelEl = card.querySelector('.active-note-label');
+
           // Event listeners
           card.querySelector('.btn-dev-beep').addEventListener('click', () => {
             dev.playNote(440, 200);
           });
           card.querySelector('.btn-dev-led').addEventListener('click', () => {
-            dev.setLights(3, dev.theme.rgb[0], dev.theme.rgb[1], dev.theme.rgb[2]);
+            dev.setLights(3, dev.theme.rgb[0], dev.theme.rgb[1], dev.theme.rgb[2], { force: true });
           });
           card.querySelector('.btn-dev-disconnect').addEventListener('click', async () => {
             await dev.disconnect();
-            this.rootDevices = this.rootDevices.filter(d => d.device.id !== dev.device.id);
-            this.onDeviceListChanged();
           });
           card.querySelector('.btn-dev-mute').addEventListener('click', (e) => {
             dev.isMuted = !dev.isMuted;
@@ -1513,19 +1628,23 @@
         if (!this.parsedTracks || this.parsedTracks.length === 0) return [];
 
         return this.parsedTracks.map(t => {
-          const notes = t.notes;
+          const notes = t.notes || [];
           let sumPitch = 0, minPitch = 127, maxPitch = 0;
           notes.forEach(n => {
             sumPitch += n.midi;
             if (n.midi < minPitch) minPitch = n.midi;
             if (n.midi > maxPitch) maxPitch = n.midi;
           });
-          const avgPitch = sumPitch / notes.length;
+          const avgPitch = notes.length > 0 ? sumPitch / notes.length : 60;
 
+          const isPercussion = t.channel === 9 || /drum|perc|kit/i.test(t.name || '');
           let role = 'harmony';
           let roleLabel = '和音・伴奏';
 
-          if (avgPitch < 52) {
+          if (isPercussion) {
+            role = 'percussion';
+            roleLabel = 'パーカッション・ドラム';
+          } else if (avgPitch < 52) {
             role = 'bass';
             roleLabel = '低音・ベース';
           } else if (avgPitch >= 75) {
@@ -1539,6 +1658,7 @@
           return {
             trackIndex: t.index,
             name: t.name,
+            channel: t.channel,
             noteCount: notes.length,
             avgPitch,
             minPitch,
@@ -1553,54 +1673,69 @@
       autoOptimizeEnsemble() {
         const analyzed = this.analyzeTrackRoles();
         const activeRoots = this.rootDevices.filter(d => d.isConnected);
-        const pcActive = this.pcDevice.isEnabled;
 
         // Reset auto roles
         activeRoots.forEach(d => d.autoResolvedRole = '');
         this.pcDevice.autoResolvedRole = '';
+        this.pcDevice.autoBassOctaveDown = false;
 
         if (analyzed.length > 1) {
-          // Multi-track MIDI: Sort tracks by priority: Melody -> Harmony -> Bass -> Treble
+          // Multi-track MIDI: Sort tracks by priority: Melody -> Harmony -> Bass -> Treble -> Percussion
           const sorted = [...analyzed].sort((a, b) => {
-            const priority = { melody: 1, harmony: 2, bass: 3, treble: 4 };
+            const priority = { melody: 1, harmony: 2, bass: 3, treble: 4, percussion: 5 };
             return (priority[a.role] || 99) - (priority[b.role] || 99);
           });
 
+          const nonPercSorted = sorted.filter(t => t.role !== 'percussion');
+          const rootPool = nonPercSorted.length > 0 ? nonPercSorted : sorted;
           let trackPtr = 0;
           const assignedTrackIndices = new Set();
 
           // 1. Assign Roots
           activeRoots.forEach((root, idx) => {
             if (root.assignedPart === 'auto') {
-              if (trackPtr < sorted.length) {
-                const target = sorted[trackPtr++];
+              if (trackPtr < rootPool.length) {
+                const target = rootPool[trackPtr++];
                 root.autoResolvedTrackIndex = target.trackIndex;
                 root.autoResolvedRole = `[Tr ${target.trackIndex + 1}] ${target.roleLabel}`;
                 assignedTrackIndices.add(target.trackIndex);
               } else {
-                // Wrap around
-                const target = sorted[idx % sorted.length];
+                // Wrap around non-percussion pool
+                const target = rootPool[idx % rootPool.length];
                 root.autoResolvedTrackIndex = target.trackIndex;
                 root.autoResolvedRole = `[Tr ${target.trackIndex + 1}] ${target.roleLabel}`;
               }
             }
           });
 
-          // 2. Assign PC (Give PC a distinct, unassigned track like accompaniment or bass!)
+          // 2. Assign PC (Give PC a distinct, unassigned non-percussion track like accompaniment or bass!)
           if (this.pcDevice.assignedPart === 'auto') {
-            const remaining = sorted.find(t => !assignedTrackIndices.has(t.trackIndex));
-            if (remaining) {
+            const remaining = sorted.find(t => !assignedTrackIndices.has(t.trackIndex) && t.role !== 'percussion')
+              || sorted.find(t => !assignedTrackIndices.has(t.trackIndex));
+            if (remaining && remaining.role !== 'percussion') {
               this.pcDevice.autoResolvedTrackIndex = remaining.trackIndex;
               this.pcDevice.autoResolvedRole = `[Tr ${remaining.trackIndex + 1}] ${remaining.roleLabel}`;
             } else {
-              // If all assigned, assign harmony/bass or first non-melody track
-              const nonMelody = sorted.find(t => t.role !== 'melody') || sorted[0];
+              // If all non-percussion tracks assigned, prefer harmony/bass or first non-percussion track
+              const nonMelody = sorted.find(t => t.role !== 'melody' && t.role !== 'percussion')
+                || sorted.find(t => t.role !== 'percussion')
+                || sorted[0];
               this.pcDevice.autoResolvedTrackIndex = nonMelody.trackIndex;
               this.pcDevice.autoResolvedRole = `[Tr ${nonMelody.trackIndex + 1}] ${nonMelody.roleLabel} (伴奏)`;
             }
           }
         } else {
           // Single-track / Chord MIDI: Split voices
+          const singleNotes = (this.parsedTracks[0] && this.parsedTracks[0].notes) || [];
+          let isPolyphonic = false;
+          const sortedByTime = [...singleNotes].sort((a, b) => a.time - b.time);
+          for (let i = 0; i < sortedByTime.length - 1; i++) {
+            if (sortedByTime[i].time + sortedByTime[i].duration - 0.015 > sortedByTime[i + 1].time) {
+              isPolyphonic = true;
+              break;
+            }
+          }
+
           activeRoots.forEach((root, idx) => {
             if (root.assignedPart === 'auto') {
               root.autoResolvedVoice = idx;
@@ -1611,10 +1746,17 @@
           if (this.pcDevice.assignedPart === 'auto') {
             if (activeRoots.length === 0) {
               this.pcDevice.autoResolvedVoice = 0;
+              this.pcDevice.autoBassOctaveDown = false;
               this.pcDevice.autoResolvedRole = '全ノート (Full)';
+            } else if (!isPolyphonic) {
+              // Single-track monophonic song with Root(s) connected: PC plays -1 octave bass accompaniment
+              this.pcDevice.autoResolvedVoice = activeRoots.length;
+              this.pcDevice.autoBassOctaveDown = true;
+              this.pcDevice.autoResolvedRole = `Voice ${activeRoots.length + 1} (低音ベース伴奏 -1Oct)`;
             } else {
               // PC plays bottom voice or full chords
               this.pcDevice.autoResolvedVoice = activeRoots.length;
+              this.pcDevice.autoBassOctaveDown = false;
               this.pcDevice.autoResolvedRole = `Voice ${activeRoots.length + 1} (低音・和音補強)`;
             }
           }
@@ -1628,42 +1770,53 @@
       recalculateEnsembleSequences() {
         if (!this.parsedTracks || this.parsedTracks.length === 0) return;
 
+        // Exclude Channel 10 (0-indexed channel === 9) drum tracks from merged notes unless all tracks are percussion
+        const nonDrumTracks = this.parsedTracks.filter(t => t.channel !== 9);
+        const tracksToMerge = nonDrumTracks.length > 0 ? nonDrumTracks : this.parsedTracks;
         let allNotesMerged = [];
-        this.parsedTracks.forEach(t => {
+        tracksToMerge.forEach(t => {
           allNotesMerged = allNotesMerged.concat(t.notes);
         });
 
         // Function to extract sequence for a given device assignment
-        const getSequenceForAssignment = (assignedPart, autoTrackIdx, autoVoiceIdx) => {
+        const getSequenceForAssignment = (assignedPart, autoTrackIdx, autoVoiceIdx, transposeOffset = 0) => {
+          const effectiveTranspose = this.transpose + transposeOffset;
+          let seq = [];
           if (assignedPart === 'all') {
-            return monophonizeNotes(allNotesMerged, 'highest', this.gateRatio, this.transpose);
+            seq = monophonizeNotes(allNotesMerged, 'highest', this.gateRatio, effectiveTranspose);
           } else if (assignedPart.startsWith('track_')) {
             const trIdx = parseInt(assignedPart.replace('track_', ''), 10);
             const tr = this.parsedTracks.find(t => t.index === trIdx);
-            return tr ? monophonizeNotes(tr.notes, 'highest', this.gateRatio, this.transpose) : [];
+            seq = tr ? monophonizeNotes(tr.notes, 'highest', this.gateRatio, effectiveTranspose) : [];
           } else if (assignedPart.startsWith('voice_')) {
             const vRank = parseInt(assignedPart.replace('voice_', ''), 10);
-            return extractVoiceFromNotes(allNotesMerged, vRank, 3, this.gateRatio, this.transpose);
+            seq = extractVoiceFromNotes(allNotesMerged, vRank, 3, this.gateRatio, effectiveTranspose);
           } else {
             // Auto
             if (this.parsedTracks.length > 1 && autoTrackIdx !== undefined) {
               const tr = this.parsedTracks.find(t => t.index === autoTrackIdx);
-              return tr ? monophonizeNotes(tr.notes, 'highest', this.gateRatio, this.transpose) : [];
+              seq = tr ? monophonizeNotes(tr.notes, 'highest', this.gateRatio, effectiveTranspose) : [];
             } else {
               const vRank = autoVoiceIdx || 0;
-              return extractVoiceFromNotes(allNotesMerged, vRank, Math.max(3, this.rootDevices.length + 1), this.gateRatio, this.transpose);
+              seq = extractVoiceFromNotes(allNotesMerged, vRank, Math.max(3, this.rootDevices.length + 1), this.gateRatio, effectiveTranspose);
             }
           }
+          if (seq.length === 0 && allNotesMerged.length > 0) {
+            seq = monophonizeNotes(allNotesMerged, 'highest', this.gateRatio, effectiveTranspose);
+          }
+          return seq;
         };
 
-        // 1. Root sequences
+        // 1. Root sequences (fold low notes >= C3 / MIDI 48 for Root piezo speaker protection)
         this.rootDevices.forEach(root => {
-          root.sequence = getSequenceForAssignment(root.assignedPart, root.autoResolvedTrackIndex, root.autoResolvedVoice);
+          const rawSeq = getSequenceForAssignment(root.assignedPart, root.autoResolvedTrackIndex, root.autoResolvedVoice, 0);
+          root.sequence = foldSequenceForRootPiezo(rawSeq, 48);
           root.nextIndex = 0;
         });
 
-        // 2. PC sequence
-        this.pcDevice.sequence = getSequenceForAssignment(this.pcDevice.assignedPart, this.pcDevice.autoResolvedTrackIndex, this.pcDevice.autoResolvedVoice);
+        // 2. PC sequence (preserves true bass pitch, with -12 semitone bass accompaniment on 1-track monophonic songs when Roots are active)
+        const pcTransposeOffset = (this.pcDevice.assignedPart === 'auto' && this.parsedTracks.length <= 1 && this.pcDevice.autoBassOctaveDown) ? -12 : 0;
+        this.pcDevice.sequence = getSequenceForAssignment(this.pcDevice.assignedPart, this.pcDevice.autoResolvedTrackIndex, this.pcDevice.autoResolvedVoice, pcTransposeOffset);
         this.pcDevice.nextIndex = 0;
 
         // Calculate overall duration
@@ -1694,8 +1847,14 @@
           jumpBtn.classList.add('hidden');
         }
 
-        this.stop();
-        this.drawPianoRoll();
+        this.updatePianoRollLegend();
+        this.rebuildPianoRollCache();
+
+        if (this.isPlaying || this.isPaused) {
+          this.seekTo(this.currentPlayTime);
+        } else {
+          this.stop();
+        }
       }
 
       updateEnsembleSummaryUI() {
@@ -1741,10 +1900,12 @@
         const preset = PRESETS[key];
         if (!preset) return;
 
+        this.stop();
         this.rawMidi = null;
         this.parsedTracks = [{
           index: 0,
           name: preset.title,
+          channel: 0,
           notes: preset.notes.map(n => ({
             time: Number(n.time) || 0,
             duration: Number(n.duration) || 0.2,
@@ -1783,6 +1944,7 @@
           } catch (err1) {
             midi = new Midi(arrayBuffer);
           }
+          this.stop();
           this.rawMidi = midi;
 
           const title = (midi.name && midi.name.trim().length > 0) ? midi.name.trim() : file.name.replace(/\.[^/.]+$/, "");
@@ -1845,6 +2007,27 @@
       // ==========================================
       // Playback Engine for Multi-Device Ensemble
       // ==========================================
+      clearEngineTimers() {
+        if (this.animFrameId) {
+          cancelAnimationFrame(this.animFrameId);
+          this.animFrameId = null;
+        }
+        if (this.bgTimerId) {
+          clearTimeout(this.bgTimerId);
+          this.bgTimerId = null;
+        }
+      }
+
+      scheduleNextTick() {
+        this.clearEngineTimers();
+        if (!this.isPlaying) return;
+        if (document.hidden) {
+          this.bgTimerId = setTimeout(() => this.engineLoop(), 16);
+        } else {
+          this.animFrameId = requestAnimationFrame(() => this.engineLoop());
+        }
+      }
+
       play() {
         if (this.totalDuration === 0) return;
         this.synth.init();
@@ -1869,7 +2052,7 @@
         this.isPlaying = false;
         this.isPaused = true;
 
-        if (this.animFrameId) cancelAnimationFrame(this.animFrameId);
+        this.clearEngineTimers();
 
         // Stop all robots & PC
         this.rootDevices.forEach(d => d.stopSound());
@@ -1888,11 +2071,11 @@
         this.isPlaying = false;
         this.isPaused = false;
 
-        if (this.animFrameId) cancelAnimationFrame(this.animFrameId);
+        this.clearEngineTimers();
 
         this.rootDevices.forEach(d => {
           d.stopSound();
-          if (d.isConnected) d.setLights(0, 0, 0, 0);
+          if (d.isConnected) d.setLights(0, 0, 0, 0, { force: true });
           d.nextIndex = 0;
           d.currentNote = null;
         });
@@ -1925,17 +2108,20 @@
         this.rootDevices.forEach(d => {
           d.nextIndex = d.sequence.findIndex(n => (n.time + n.duration) > this.currentPlayTime);
           if (d.nextIndex === -1) d.nextIndex = d.sequence.length;
+          d.currentNote = null;
           d.stopSound();
         });
 
         this.pcDevice.nextIndex = this.pcDevice.sequence.findIndex(n => (n.time + n.duration) > this.currentPlayTime);
         if (this.pcDevice.nextIndex === -1) this.pcDevice.nextIndex = this.pcDevice.sequence.length;
+        this.pcDevice.currentNote = null;
         this.synth.stopTone();
 
         if (this.isPlaying) {
           this.playbackStartTime = performance.now() - (this.currentPlayTime * 1000 / this.speed);
         }
 
+        this.updateActiveNoteBadges();
         this.drawPianoRoll();
       }
 
@@ -1952,6 +2138,8 @@
         if (this.currentPlayTime >= this.totalDuration) {
           if (this.isLooping) {
             this.seekTo(0);
+            this.scheduleNextTick();
+            return;
           } else {
             this.stop();
             return;
@@ -1989,20 +2177,24 @@
         this.updateActiveNoteBadges();
         this.drawPianoRoll();
 
-        this.animFrameId = requestAnimationFrame(() => this.engineLoop());
+        this.scheduleNextTick();
       }
 
       triggerRootNote(dev, note) {
         const actualDurationSec = note.playDuration / this.speed;
         const actualDurationMs = Math.round(actualDurationSec * 1000);
-        const safeFreq = Math.max(30, Math.min(8000, note.freq || 440));
+        let rawFreq = note.freq || 440;
+        if (rawFreq > 0) {
+          while (rawFreq < 110) rawFreq *= 2;
+        }
+        const safeFreq = Math.max(110, Math.min(8000, rawFreq));
 
         dev.currentNote = note;
         dev.playNote(safeFreq, actualDurationMs);
 
-        // Flash slot color LED
+        // Flash slot color LED (throttled to avoid BLE packet queue congestion)
         if (this.isLedSync) {
-          dev.setLights(1, dev.theme.rgb[0], dev.theme.rgb[1], dev.theme.rgb[2]);
+          dev.setLights(1, dev.theme.rgb[0], dev.theme.rgb[1], dev.theme.rgb[2], { throttleMs: 200 });
         }
       }
 
@@ -2015,51 +2207,65 @@
 
       updateActiveNoteBadges() {
         // PC
-        const pcCur = this.pcDevice.sequence.find(n => this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration));
+        const pcCur = (this.pcDevice.isEnabled && !this.pcDevice.isMuted)
+          ? this.pcDevice.sequence.find(n => this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration))
+          : null;
+        this.pcDevice.currentNote = pcCur || null;
         const pcLabel = document.getElementById('pcActiveNoteDisplay');
-        if (pcCur && this.pcDevice.isEnabled) {
-          pcLabel.textContent = `発音中: ${pcCur.name} (${pcCur.freq}Hz)`;
-          pcLabel.className = 'text-[11px] font-mono text-sky-400 font-bold';
-        } else {
-          pcLabel.textContent = '待機中';
-          pcLabel.className = 'text-[11px] font-mono text-slate-500';
+        if (pcLabel) {
+          const nextPcText = pcCur ? `発音中: ${pcCur.name} (${pcCur.freq}Hz)` : '待機中';
+          if (pcLabel.textContent !== nextPcText) {
+            pcLabel.textContent = nextPcText;
+            pcLabel.className = pcCur
+              ? 'text-[11px] font-mono text-sky-400 font-bold'
+              : 'text-[11px] font-mono text-slate-500';
+          }
         }
 
         // Roots
         this.rootDevices.forEach(dev => {
-          const card = document.querySelector(`.robot-device-card[data-device-id="${dev.device.id}"]`);
-          if (!card) return;
-          const label = card.querySelector('.active-note-label');
-          const cur = dev.sequence.find(n => this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration));
-          if (cur && dev.isConnected) {
-            label.textContent = `発音中: ${cur.name} (${cur.freq}Hz)`;
-            label.style.color = dev.theme.hex;
-            label.className = 'active-note-label text-[11px] font-mono font-bold';
-          } else {
-            label.textContent = '待機中';
-            label.style.color = '';
-            label.className = 'active-note-label text-[11px] font-mono text-slate-500';
+          const cur = (dev.isConnected && !dev.isMuted)
+            ? dev.sequence.find(n => this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration))
+            : null;
+          dev.currentNote = cur || null;
+
+          if (!dev.cardLabelEl) {
+            const card = document.querySelector(`.robot-device-card[data-device-id="${dev.device.id}"]`);
+            if (card) dev.cardLabelEl = card.querySelector('.active-note-label');
+          }
+          const label = dev.cardLabelEl;
+          if (!label) return;
+
+          const nextText = cur ? `発音中: ${cur.name} (${cur.freq}Hz)` : '待機中';
+          if (label.textContent !== nextText) {
+            label.textContent = nextText;
+            label.style.color = cur ? dev.theme.hex : '';
+            label.className = cur
+              ? 'active-note-label text-[11px] font-mono font-bold'
+              : 'active-note-label text-[11px] font-mono text-slate-500';
           }
         });
 
         // Top overall active note
         const anyActive = [...this.rootDevices, this.pcDevice].map(d => d.currentNote).filter(Boolean)[0];
-        if (anyActive) {
-          document.getElementById('activeNoteName').textContent = anyActive.name;
-          document.getElementById('activeNoteFreq').textContent = `${anyActive.freq} Hz`;
-        } else {
-          document.getElementById('activeNoteName').textContent = '---';
-          document.getElementById('activeNoteFreq').textContent = '0 Hz';
-        }
+        const nameEl = document.getElementById('activeNoteName');
+        const freqEl = document.getElementById('activeNoteFreq');
+        const nextName = anyActive ? anyActive.name : '---';
+        const nextFreq = anyActive ? `${anyActive.freq} Hz` : '0 Hz';
+        if (nameEl && nameEl.textContent !== nextName) nameEl.textContent = nextName;
+        if (freqEl && freqEl.textContent !== nextFreq) freqEl.textContent = nextFreq;
       }
 
       resetActiveNoteBadges() {
+        this.pcDevice.currentNote = null;
+        this.rootDevices.forEach(d => d.currentNote = null);
         document.getElementById('activeNoteName').textContent = '---';
         document.getElementById('activeNoteFreq').textContent = '0 Hz';
         document.getElementById('pcActiveNoteDisplay').textContent = '待機中';
         document.getElementById('pcActiveNoteDisplay').className = 'text-[11px] font-mono text-slate-500';
         document.querySelectorAll('.active-note-label').forEach(el => {
           el.textContent = '待機中';
+          el.style.color = '';
           el.className = 'active-note-label text-[11px] font-mono text-slate-500';
         });
       }
@@ -2091,33 +2297,11 @@
         this.ctx.scale(dpr, dpr);
         this.canvasWidth = rect.width;
         this.canvasHeight = rect.height;
+        this.rebuildPianoRollCache();
         this.drawPianoRoll();
       }
 
-      drawPianoRoll() {
-        if (!this.ctx || !this.canvasWidth || !this.canvasHeight) return;
-
-        const w = this.canvasWidth;
-        const h = this.canvasHeight;
-        const ctx = this.ctx;
-
-        // Background
-        ctx.fillStyle = '#020617';
-        ctx.fillRect(0, 0, w, h);
-
-        // Guide lines
-        ctx.strokeStyle = 'rgba(51, 65, 85, 0.35)';
-        ctx.lineWidth = 1;
-        const numPitchLines = 12;
-        for (let i = 0; i <= numPitchLines; i++) {
-          const y = (h / numPitchLines) * i;
-          ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(w, y);
-          ctx.stroke();
-        }
-
-        // Gather all active device layers
+      getActivePianoRollLayers() {
         const layers = [];
         if (this.pcDevice.isEnabled && this.pcDevice.sequence.length > 0) {
           layers.push({ name: 'PC Synth', color: PC_THEME.hex, sequence: this.pcDevice.sequence });
@@ -2127,9 +2311,13 @@
             layers.push({ name: d.name, color: d.theme.hex, sequence: d.sequence });
           }
         });
+        return layers;
+      }
 
-        // Update Legend
+      updatePianoRollLegend() {
         const legend = document.getElementById('pianoRollLegend');
+        if (!legend) return;
+        const layers = this.getActivePianoRollLayers();
         legend.innerHTML = '';
         layers.forEach(l => {
           const span = document.createElement('span');
@@ -2137,8 +2325,102 @@
           span.innerHTML = `<span class="w-2 h-2 rounded-full" style="background-color: ${l.color}"></span><span class="text-slate-300">${l.name}</span>`;
           legend.appendChild(span);
         });
+      }
+
+      rebuildPianoRollCache() {
+        if (!this.canvas || !this.canvasWidth || !this.canvasHeight) return;
+        const w = this.canvasWidth;
+        const h = this.canvasHeight;
+        const dpr = window.devicePixelRatio || 1;
+
+        this.cachedLayers = this.getActivePianoRollLayers();
+        if (this.cachedLayers.length === 0 || this.totalDuration <= 0) {
+          this.bgBrightCanvas = null;
+          this.bgDimCanvas = null;
+          return;
+        }
+
+        let minMidi = 127, maxMidi = 0;
+        this.cachedLayers.forEach(l => {
+          l.sequence.forEach(n => {
+            if (n.midi < minMidi) minMidi = n.midi;
+            if (n.midi > maxMidi) maxMidi = n.midi;
+          });
+        });
+        this.cachedMinMidi = Math.max(21, minMidi - 2);
+        this.cachedMaxMidi = Math.min(108, maxMidi + 2);
+        this.cachedMidiRange = Math.max(12, this.cachedMaxMidi - this.cachedMinMidi);
+
+        const createLayerCanvas = (alphaSuffix) => {
+          const off = document.createElement('canvas');
+          off.width = Math.max(1, Math.round(w * dpr));
+          off.height = Math.max(1, Math.round(h * dpr));
+          const c = off.getContext('2d');
+          if (!c) return null;
+          c.scale(dpr, dpr);
+
+          // Background
+          c.fillStyle = '#020617';
+          c.fillRect(0, 0, w, h);
+
+          // Guide lines
+          c.strokeStyle = 'rgba(51, 65, 85, 0.35)';
+          c.lineWidth = 1;
+          const numPitchLines = 12;
+          for (let i = 0; i <= numPitchLines; i++) {
+            const y = (h / numPitchLines) * i;
+            c.beginPath();
+            c.moveTo(0, y);
+            c.lineTo(w, y);
+            c.stroke();
+          }
+
+          // Notes
+          const noteHeight = Math.max(5, Math.min(14, (h / this.cachedMidiRange) * 0.9));
+          this.cachedLayers.forEach(layer => {
+            c.fillStyle = layer.color + alphaSuffix;
+            layer.sequence.forEach(n => {
+              const x = (n.time / this.totalDuration) * w;
+              const noteWidth = Math.max(2, (n.duration / this.totalDuration) * w - 1);
+              const normPitch = (n.midi - this.cachedMinMidi) / this.cachedMidiRange;
+              const y = h - (normPitch * (h - 20)) - 15;
+              c.beginPath();
+              if (c.roundRect) {
+                c.roundRect(x, y, noteWidth, noteHeight, 2);
+              } else {
+                c.rect(x, y, noteWidth, noteHeight);
+              }
+              c.fill();
+            });
+          });
+          return off;
+        };
+
+        this.bgBrightCanvas = createLayerCanvas('cc');
+        this.bgDimCanvas = createLayerCanvas('55');
+      }
+
+      drawPianoRoll() {
+        if (!this.ctx || !this.canvasWidth || !this.canvasHeight) return;
+
+        const w = this.canvasWidth;
+        const h = this.canvasHeight;
+        const ctx = this.ctx;
+
+        const layers = this.cachedLayers && this.cachedLayers.length > 0 ? this.cachedLayers : this.getActivePianoRollLayers();
 
         if (layers.length === 0 || this.totalDuration <= 0) {
+          ctx.fillStyle = '#020617';
+          ctx.fillRect(0, 0, w, h);
+          ctx.strokeStyle = 'rgba(51, 65, 85, 0.35)';
+          ctx.lineWidth = 1;
+          for (let i = 0; i <= 12; i++) {
+            const y = (h / 12) * i;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(w, y);
+            ctx.stroke();
+          }
           ctx.fillStyle = '#64748b';
           ctx.font = '12px Inter, sans-serif';
           ctx.textAlign = 'center';
@@ -2146,50 +2428,53 @@
           return;
         }
 
-        // Pitch Range
-        let minMidi = 127, maxMidi = 0;
-        layers.forEach(l => {
-          l.sequence.forEach(n => {
-            if (n.midi < minMidi) minMidi = n.midi;
-            if (n.midi > maxMidi) maxMidi = n.midi;
-          });
-        });
-        minMidi = Math.max(21, minMidi - 2);
-        maxMidi = Math.min(108, maxMidi + 2);
-        const midiRange = Math.max(12, maxMidi - minMidi);
+        if (!this.bgBrightCanvas || !this.bgDimCanvas) {
+          this.rebuildPianoRollCache();
+        }
 
-        // Draw note rectangles layer by layer
+        const playheadX = (this.currentPlayTime / this.totalDuration) * w;
+
+        if (this.bgBrightCanvas && this.bgDimCanvas) {
+          ctx.drawImage(this.bgBrightCanvas, 0, 0, w, h);
+          if (playheadX > 0) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, playheadX, h);
+            ctx.clip();
+            ctx.drawImage(this.bgDimCanvas, 0, 0, w, h);
+            ctx.restore();
+          }
+        }
+
+        // Highlight only currently active notes
+        const minMidi = this.cachedMinMidi;
+        const midiRange = this.cachedMidiRange;
+        const noteHeight = Math.max(5, Math.min(14, (h / midiRange) * 0.9));
+
         layers.forEach(layer => {
           layer.sequence.forEach(n => {
-            const x = (n.time / this.totalDuration) * w;
-            const noteWidth = Math.max(2, (n.duration / this.totalDuration) * w - 1);
-            const normPitch = (n.midi - minMidi) / midiRange;
-            const y = h - (normPitch * (h - 20)) - 15;
-            const noteHeight = Math.max(5, Math.min(14, (h / midiRange) * 0.9));
+            if (this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration)) {
+              const x = (n.time / this.totalDuration) * w;
+              const noteWidth = Math.max(2, (n.duration / this.totalDuration) * w - 1);
+              const normPitch = (n.midi - minMidi) / midiRange;
+              const y = h - (normPitch * (h - 20)) - 15;
 
-            const isCurrent = this.currentPlayTime >= n.time && this.currentPlayTime < (n.time + n.duration);
-
-            if (isCurrent) {
               ctx.fillStyle = '#ffffff';
               ctx.shadowColor = layer.color;
               ctx.shadowBlur = 12;
-            } else if (n.time < this.currentPlayTime) {
-              ctx.fillStyle = layer.color + '55'; // Faded
-              ctx.shadowBlur = 0;
-            } else {
-              ctx.fillStyle = layer.color + 'cc';
+              ctx.beginPath();
+              if (ctx.roundRect) {
+                ctx.roundRect(x, y, noteWidth, noteHeight, 2);
+              } else {
+                ctx.rect(x, y, noteWidth, noteHeight);
+              }
+              ctx.fill();
               ctx.shadowBlur = 0;
             }
-
-            ctx.beginPath();
-            ctx.roundRect(x, y, noteWidth, noteHeight, 2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
           });
         });
 
         // Playhead line
-        const playheadX = (this.currentPlayTime / this.totalDuration) * w;
         ctx.strokeStyle = '#38bdf8';
         ctx.lineWidth = 2;
         ctx.shadowColor = '#0ea5e9';
